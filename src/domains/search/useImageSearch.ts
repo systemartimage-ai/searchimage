@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { FakeEmbeddingProvider } from '@/domains/embedding'
+import { ClipEmbeddingProvider } from '@/domains/embedding'
 import { searchMockCatalog, type SearchResult } from './searchMockCatalog'
 
 export type SearchStatus =
@@ -8,7 +8,10 @@ export type SearchStatus =
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
-const provider = new FakeEmbeddingProvider()
+// CLIP local (Transformers.js) — mesmo modelo usado para gerar os
+// embeddings de REAL_CATALOG_SAMPLE, senão a comparação não faz
+// sentido. Sem API key: pode rodar no navegador (ver EmbeddingProvider.ts).
+const provider = new ClipEmbeddingProvider()
 
 export interface SearchOptions {
   limit: number

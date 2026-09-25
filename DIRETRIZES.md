@@ -906,6 +906,17 @@ gmail.com`, não confirmadas, senha de teste). Não têm poder de dano
   (role `USER`, sem confirmação de e-mail), mas ficaram no banco — se
   quiser uma base 100% limpa, apague-as em Authentication → Users no
   dashboard.
+- **2026-09-25 — Rate limit de e-mail estourado pelos meus testes.**
+  Os cadastros de teste em sequência da Fase 1 consumiram a cota de
+  e-mail padrão do Supabase (bem baixa no plano free), e isso bloqueou
+  o cadastro real do usuário logo em seguida com "muitas tentativas em
+  pouco tempo". Resolve sozinho depois de um tempo (a cota reseta), ou
+  configurando SMTP próprio em Authentication → Providers → Email.
+  **Lição para as próximas fases:** não rodar múltiplos
+  `supabase.auth.signUp` reais em sequência para testar — usar o mock
+  de auth (Testing Library, como no `HomePage.test.tsx`) ou, se
+  precisar mesmo de um teste contra o Supabase real, fazer só um por
+  vez com espaçamento.
 - Credencial de login do site-fonte (`artimage.com.br`) ainda não foi
   enviada/configurada como secret — só será necessária na Fase 5.
 - Validação visual da Fase 2 em navegador real ficou pendente (ver nota
@@ -1111,6 +1122,169 @@ o `06_PLANO_IMPLEMENTACAO_CLAUDE_CODE.md` para esta fase.
 
 > 500kB sem code-splitting, ADMIN ainda não promovido, site-fonte real
 > ainda não indexado — nada disso bloqueia a Fase 3).
+
+## 2026-09-25 — Amostra real de 20 produtos para teste de busca
+
+**Solicitação:** usuário testou cadastro/login/upload com sucesso e
+pediu uma base de ~20 produtos reais do site-fonte (`artimage.com.br`),
+com fotos não genéricas, para um teste de busca mais efetivo do que o
+catálogo 100% fictício da Fase 2.
+
+**Obstáculos identificados antes de agir:** (1) a listagem de
+categoria (`/produtos/{slug}`) exige login — confirmado de novo via
+`WebFetch`, redireciona para `minha-conta.artimage.com.br`; (2) mesmo
+com fotos reais, o embedding do catálogo mock (`mockEmbedding(id)` em
+`mockCatalogData.ts`) é pseudo-aleatório e **não depende da imagem**,
+então o ranking continuaria essencialmente aleatório. Ambos os pontos
+foram explicados ao usuário antes de prosseguir, com confirmação dele
+para: (a) abrir um browser real para login manual, (b) calcular o
+embedding da amostra real a partir dos bytes do arquivo (mesmo
+algoritmo do `FakeEmbeddingProvider`), em vez de aleatório por id.
+
+**Implementação:**
+- Sessão obtida do mesmo jeito do reconhecimento inicial: Playwright
+  headed, usuário logou manualmente numa janela visível, nenhuma senha
+  foi vista/armazenada — só o cookie de sessão, em arquivo temporário
+  fora do repositório, apagado ao final do processo.
+- Com a sessão, naveguei as 4 categorias reais (`art-gallery`,
+  `collectibles`, `artsy`, `mirror-design`) e extraí 20 produtos (6+5+
+  5+4) via seletores reais inspecionados no HTML (`.item-wrapper`,
+  `.item[data-item]`, `.item-title`, `.item-code`, `.item-image img`) —
+  nenhum seletor foi inventado.
+- Para cada item, baixei os bytes da imagem (URL pública e estável do
+  DigitalOcean Spaces) só para calcular o embedding fake; a imagem em
+  si **não foi copiada** para o projeto/Storage — `thumbnailUrl`
+  aponta direto para a URL original do CDN.
+- Dados salvos em `src/domains/catalog/realCatalogSample.ts`
+  (`REAL_CATALOG_SAMPLE`), **separado** do `MOCK_CATALOG` fictício —
+  não alterei `mockCatalogData.ts` nem os testes que dependem dele.
+  `searchMockCatalog.ts` agora busca em
+  `[...REAL_CATALOG_SAMPLE, ...MOCK_CATALOG]`; `SourceCards.tsx` mostra
+  a contagem combinada.
+
+**Limitação que permanece (documentada no cabeçalho do arquivo):** o
+embedding da amostra real ainda é o algoritmo fake (histograma de
+bytes do arquivo), não um embedding visual/semântico real — reage ao
+conteúdo do arquivo (diferente do catálogo mock, que é aleatório), mas
+só a Fase 3 (`EmbeddingProvider` real) traz similaridade visual de
+verdade. "Abrir original" nos cards de resultado continua desabilitado
+para esses itens — não foi ligado ao `detailUrl` real (fora do escopo
+desta tarefa).
+
+**Testes executados:** lint, typecheck, `vitest run` (25/25 passando,
+incluindo os que dependem de `MOCK_CATALOG` intocado) e `npm run
+build`, todos limpos.
+
+**Pendências:** validação visual do fluxo completo (login → upload →
+resultados com fotos reais) ainda não feita por mim neste processo —
+pedido ao usuário para conferir no navegador, já que criar mais contas
+de teste aqui poderia esbarrar de novo no rate limit de e-mail do
+Supabase (ver nota de 2026-09-25 em ARQUITETURA ATUAL). Credencial de
+login do site-fonte continua não configurada como secret — essa
+amostra não usa nem precisa disso, só a Fase 5 (indexador oficial)
+vai.
+
+## 2026-09-25 — Embedding real (CLIP local) + preparação pro catálogo inteiro (PARADO AQUI — retomar daqui)
+
+**Contexto:** usuário achou a busca da amostra de 20 itens pouco
+precisa (esperado — embedding era histograma de bytes) e pediu pra
+indexar o catálogo real **inteiro** (~7.000 itens), com busca afinada e
+testada. Antes de sair rodando, investiguei e alinhei com o usuário:
+provider de IA sem custo (ele pediu "efetividade sem custo de
+valores") e a arquitetura de busca atual (array estático no navegador)
+não aguenta 7.000 embeddings reais (~25-30MB no bundle). Ele confirmou
+que quer o site inteiro mesmo assim; comecei a construir a base pra
+isso, na ordem certa, e fui interrompido (usuário precisou fechar e
+viajar) no meio do caminho. **Estado abaixo é exatamente onde parei.**
+
+**Feito nesta etapa:**
+- `EmbeddingProvider` real implementado:
+  [ClipEmbeddingProvider.ts](../src/domains/embedding/ClipEmbeddingProvider.ts) —
+  CLIP ViT-B/32 (`Xenova/clip-vit-base-patch32`) via
+  `@huggingface/transformers` (Transformers.js/ONNX), rodando 100%
+  local — sem API key, sem custo por chamada, funciona no navegador E
+  no Node (mesmo modelo dos dois lados, testado e validado de verdade,
+  não só por documentação: rodei o extractor com uma imagem real do
+  catálogo e confirmei 512 dimensões, e comparei similaridade entre
+  itens da mesma série vs. de categorias diferentes — 0.87 vs. 0.75,
+  ranking reagindo a semelhança visual real).
+- Dependência nova: `@huggingface/transformers` (`package.json`).
+  Scripts de postinstall (`onnxruntime-node`, `protobufjs`) aprovados
+  via `npm install-scripts approve` (bloqueados por padrão pelo npm
+  novo, são pacotes legítimos e necessários pro runtime ONNX no Node).
+- `EmbeddingProvider.ts`: comentário atualizado — a regra "nunca no
+  navegador" era só pra provider com API key secreta; provider
+  open-weight local pode rodar nos dois lados.
+- `REAL_CATALOG_SAMPLE` (20 itens) regerado com embedding CLIP real de
+  512 dimensões (era histograma de bytes de 16 dimensões).
+- Busca ao vivo religada: `searchMockCatalog.ts` agora busca só em
+  `REAL_CATALOG_SAMPLE` (tirei `MOCK_CATALOG` da busca — dimensão
+  incompatível, 16 vs. 512, ia quebrar `cosineSimilarity`).
+  `useImageSearch.ts` agora usa `ClipEmbeddingProvider` em vez do fake.
+  `SourceCards.tsx` e `ResultsToolbar.tsx` (categorias do filtro, que
+  estavam hardcoded com as 4 categorias fictícias antigas) corrigidos
+  pra bater com os dados reais.
+- Testes ajustados pra essa mudança de base de dados:
+  `searchMockCatalog.test.ts` (usa `REAL_CATALOG_SAMPLE` agora) e
+  `HomePage.test.tsx` (mocka `ClipEmbeddingProvider` — rodar o modelo
+  de IA de verdade em teste de unidade seria lento/instável e o
+  arquivo fake do teste não é uma imagem válida). **25/25 testes
+  passando, lint/typecheck/build limpos** (build gera um
+  `ort-wasm-simd-threaded...wasm` de ~27MB/6.7MB gzip no `dist/` — é o
+  runtime ONNX pro navegador, carregado sob demanda só quando a busca
+  roda, não bloqueia o carregamento inicial da página; é esperado, não
+  é regressão).
+- Migration nova (**ainda não aplicada** — precisa ser rodada pelo
+  usuário no SQL Editor do Supabase Dashboard, projeto
+  `muwtcghkfltxrefvylba`):
+  [20260925010000_embedding_and_search_rpc.sql](../supabase/migrations/20260925010000_embedding_and_search_rpc.sql) —
+  adiciona coluna `embedding vector(512)` em `catalog_items`, índice
+  HNSW (`vector_cosine_ops`) e função `match_catalog_items` (RPC,
+  `security invoker` — respeita a RLS existente, não eleva privilégio).
+  Achei essa migration necessária porque descobri que o schema
+  Postgres/pgvector da Fase 1 (`sources`, `index_versions` com estados
+  `BUILDING/READY/ACTIVE/ARCHIVED`, `catalog_items`, `indexing_jobs`)
+  já existe e já está migrado — só faltava a coluna de embedding, que
+  dependia do modelo escolhido.
+- `SUPABASE_SERVICE_ROLE_KEY` adicionada pelo usuário ao `.env.local`
+  (confirmei presença sem imprimir o valor). Vai ser usada pelo
+  indexador (Node, nunca navegador) pra gravar no Postgres.
+
+**NÃO feito ainda (é o que falta pra retomar, nessa ordem):**
+1. Confirmar se o usuário já rodou a migration acima no Supabase
+   Dashboard (perguntar antes de seguir).
+2. Escrever o indexador real: login (Playwright headed, igual às
+   vezes anteriores — sessão não persiste entre execuções, não achei
+   nenhum jeito de guardar isso com segurança sem virar outro secret) →
+   paginar as 4 categorias reais (`art-gallery` 157 páginas,
+   `collectibles` 37, `artsy` 55, `mirror-design` 4 — ~7.084 itens
+   estimados) → baixar imagem → gerar embedding com
+   `ClipEmbeddingProvider` → gravar em `catalog_items` via
+   `SUPABASE_SERVICE_ROLE_KEY`, associado a um `index_versions` novo
+   com `status = 'BUILDING'`.
+3. Checkpoint/resume no indexador — ~7.000 itens não termina em
+   segundos/minutos (inferência local é CPU-bound: na amostra de 20
+   itens cada embedding levou uma fração de segundo, mas 7.000 é outra
+   ordem de grandeza — rodar em background, salvar progresso,
+   conseguir retomar se cair no meio).
+4. Só depois de rodar e validar (olhar uma amostra dos resultados,
+   calibrar o `threshold` de similaridade — na amostra de 20 itens,
+   scores giraram entre ~0.75 e ~0.87, ou seja o threshold "razoável"
+   é bem mais alto do que a intuição ingênua de 0.5 sugeriria),
+   promover o `index_versions` pra `status = 'ACTIVE'`.
+5. Trocar `useImageSearch`/`searchMockCatalog` (ou substituir por um
+   hook novo) pra chamar a RPC `match_catalog_items` via
+   `supabase.rpc()` em vez do array local — obrigatório antes de ligar
+   o catálogo de ~7.000 itens na UI (array estático não escala, ver
+   nota anterior no chat sobre tamanho de bundle).
+6. `REAL_CATALOG_SAMPLE` (20 itens) e o array local continuam
+   funcionando normalmente enquanto isso não acontece — nada quebrado,
+   é só um degrau intermediário que ainda não virou o catálogo final.
+
+**Estado do repositório:** nada commitado ainda nesta etapa (arquivos
+modificados/novos ficaram no working tree) — usuário pediu pra "salvar
+tudo" antes de fechar; ver se isso virou commit local checando `git
+log` ao retomar.
 
 ---
 

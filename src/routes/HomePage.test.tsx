@@ -13,6 +13,18 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signOut: vi.fn() } },
 }))
 
+// ClipEmbeddingProvider roda um modelo de IA real (download + inferência):
+// não faz sentido em teste de unidade (lento, precisa de rede, e o arquivo
+// fake abaixo não é uma imagem válida). Mockamos para retornar um vetor
+// fixo de 512 dimensões, mesma dimensão do REAL_CATALOG_SAMPLE.
+vi.mock('@/domains/embedding', () => ({
+  ClipEmbeddingProvider: class {
+    async embedImage() {
+      return new Array(512).fill(1 / Math.sqrt(512))
+    }
+  },
+}))
+
 function renderHomePage() {
   return render(
     <AuthContext.Provider
@@ -35,7 +47,7 @@ function makeFile(name = 'foto.png', type = 'image/png') {
   return new File([new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])], name, { type })
 }
 
-describe('HomePage — fluxo de busca (Fase 2, catálogo mock)', () => {
+describe('HomePage — fluxo de busca (amostra real do catálogo)', () => {
   it('mostra o estado inicial com dropzone e cards de fonte', () => {
     renderHomePage()
     expect(screen.getByText(/arraste uma imagem/i)).toBeInTheDocument()
@@ -56,7 +68,7 @@ describe('HomePage — fluxo de busca (Fase 2, catálogo mock)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/formato não suportado/i)
   })
 
-  it('faz upload, pesquisa e mostra resultados do catálogo mock', async () => {
+  it('faz upload, pesquisa e mostra resultados da amostra real do catálogo', async () => {
     const user = userEvent.setup()
     renderHomePage()
 
@@ -74,7 +86,7 @@ describe('HomePage — fluxo de busca (Fase 2, catálogo mock)', () => {
       },
     )
 
-    // 32 itens no catálogo mock, Top 10 por padrão.
+    // 20 itens em REAL_CATALOG_SAMPLE, Top 10 por padrão.
     const cards = screen.getAllByRole('button', { name: /copiar código/i })
     expect(cards.length).toBeLessThanOrEqual(10)
     expect(cards.length).toBeGreaterThan(0)
@@ -92,7 +104,8 @@ describe('HomePage — fluxo de busca (Fase 2, catálogo mock)', () => {
     await user.selectOptions(screen.getByLabelText(/categoria/i), 'Espelhos')
 
     await waitFor(() => {
-      const codes = screen.getAllByText(/MOCK-\d{4}/)
+      // Códigos reais dos itens "Espelhos" em REAL_CATALOG_SAMPLE.
+      const codes = screen.getAllByText(/leaf-55190-ng|elm-100-ng|aur-(hor|flu)-\d+-wg/)
       expect(codes.length).toBeGreaterThan(0)
     })
   })

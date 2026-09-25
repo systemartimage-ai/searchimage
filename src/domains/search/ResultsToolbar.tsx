@@ -1,7 +1,9 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-const CATEGORIES = ['Quadros', 'Colecionáveis', 'Espelhos', 'Diversos']
+// Categorias reais do REAL_CATALOG_SAMPLE (site-fonte artimage.com.br:
+// art-gallery, collectibles, artsy, mirror-design) — ver realCatalogSample.ts.
+const CATEGORIES = ['Quadros', 'Colecionáveis', 'Artsy', 'Espelhos']
 const LIMIT_OPTIONS = [10, 20, 50]
 
 interface ResultsToolbarProps {

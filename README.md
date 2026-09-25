@@ -24,6 +24,10 @@ cp .env.example .env.local   # preencher VITE_SUPABASE_URL e VITE_SUPABASE_ANON_
 npm run dev
 ```
 
+Abre em **http://localhost:5183** (porta fixa deste projeto — ver
+`vite.config.ts` — para não colidir com outros projetos Vite rodando
+na porta padrão 5173).
+
 ## Scripts
 
 | Script                 | Descrição                           |

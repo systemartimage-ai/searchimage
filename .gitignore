@@ -13,6 +13,9 @@ dist-ssr
 coverage
 *.local
 
+# Cache local da Supabase CLI
+supabase/.temp
+
 # Environment / secrets
 .env
 .env.*

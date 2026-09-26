@@ -21,6 +21,7 @@ supabase/.temp
 .indexer-session.json
 .indexer-checkpoint.json
 .indexer-full-run.log
+.local-upload-full-run.log
 
 # Environment / secrets
 .env

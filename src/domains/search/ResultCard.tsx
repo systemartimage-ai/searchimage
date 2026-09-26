@@ -37,6 +37,7 @@ export function ResultCard({ item, score }: SearchResult) {
           <img
             src={item.thumbnailUrl}
             alt={item.title}
+            loading="lazy"
             className="aspect-square w-full object-cover"
           />
         </button>
@@ -47,10 +48,9 @@ export function ResultCard({ item, score }: SearchResult) {
               {similarityLabel(score)}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-mono text-xs text-muted-foreground">
             {item.code} · {item.source}
           </p>
-          <p className="text-xs text-muted-foreground">score técnico: {score.toFixed(3)}</p>
 
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={handleCopyCode}>

@@ -1,73 +1,87 @@
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
+import { useState } from 'react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import type { useLocalDirectory } from '@/domains/localDirectory/useLocalDirectory'
 
-interface CatalogStatus {
-  totalItems: number
-  lastUpdated: string | null
+interface SourceCardsProps {
+  localDirectory: ReturnType<typeof useLocalDirectory>
 }
 
-export function SourceCards() {
-  const [status, setStatus] = useState<CatalogStatus | null>(null)
+// O catálogo indexado (site) é sempre pesquisado — é infraestrutura de
+// backend, o usuário não precisa saber que existe nem ver status dele.
+// Só a fonte que depende de uma ação do usuário (conectar uma pasta)
+// aparece na tela.
+export function SourceCards({ localDirectory }: SourceCardsProps) {
+  const [includeSubfolders, setIncludeSubfolders] = useState(true)
+  const { folders, connect, removeFolder, supported } = localDirectory
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      const [{ count }, { data: version }] = await Promise.all([
-        supabase.from('catalog_items').select('id', { count: 'exact', head: true }),
-        supabase
-          .from('index_versions')
-          .select('activated_at')
-          .eq('status', 'ACTIVE')
-          .order('activated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ])
-      if (!cancelled) {
-        setStatus({ totalItems: count ?? 0, lastUpdated: version?.activated_at ?? null })
-      }
-    }
-
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  if (!supported) return null
 
   return (
-    <div className="grid w-full gap-4 sm:grid-cols-2">
-      <Card className={cn('border-primary/40 bg-accent/30')}>
-        <CardHeader>
-          <CardTitle className="text-base">Catálogo Indexado</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">
-            {status ? 'Pronto' : 'Carregando...'}
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="text-base">Buscar também numa pasta específica</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
+        {folders.length === 0 && (
+          <span>
+            Conecte uma ou mais pastas do seu computador para incluí-las na busca. As imagens não
+            saem do seu dispositivo — o processamento é feito localmente no navegador.
           </span>
-          {status && (
-            <>
-              <span>{status.totalItems} itens</span>
-              {status.lastUpdated && (
+        )}
+
+        {folders.map((folder) => (
+          <div
+            key={folder.id}
+            className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5"
+          >
+            <div className="flex flex-col">
+              <span className="font-medium text-foreground">{folder.name}</span>
+              {folder.status === 'indexing' && (
                 <span>
-                  Última atualização: {new Date(status.lastUpdated).toLocaleDateString('pt-BR')}
+                  Indexando... {folder.done}
+                  {folder.total ? ` de ${folder.total}` : ''}
+                  {folder.includeSubfolders ? ' (com subpastas)' : ''}
                 </span>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              {folder.status === 'ready' && (
+                <span>
+                  {folder.done} imagem{folder.done === 1 ? '' : 's'} indexada
+                  {folder.done === 1 ? '' : 's'}
+                  {folder.includeSubfolders ? ' (com subpastas)' : ''}
+                </span>
+              )}
+              {folder.status === 'error' && (
+                <span role="alert" className="text-destructive">
+                  {folder.errorMessage}
+                </span>
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => removeFolder(folder.id)}>
+              Remover
+            </Button>
+          </div>
+        ))}
 
-      <Card className="opacity-60">
-        <CardHeader>
-          <CardTitle className="text-base">Diretório Local</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
-          <span>Em breve (Fase 7)</span>
-          <span>Você poderá conectar uma pasta do seu computador para pesquisar nela.</span>
-        </CardContent>
-      </Card>
-    </div>
+        <div className="flex flex-col gap-2 border-t pt-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeSubfolders}
+              onChange={(e) => setIncludeSubfolders(e.target.checked)}
+            />
+            Incluir subpastas
+          </label>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            onClick={() => connect(includeSubfolders)}
+          >
+            {folders.length === 0 ? 'Selecionar pasta' : 'Selecionar outra pasta'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

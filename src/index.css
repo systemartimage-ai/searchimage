@@ -2,46 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Identidade visual adaptada da marca Artimage — monocromático de
+ * propósito: "branco/off-white + preto" é literalmente a paleta real
+ * do site (sem cor de destaque), então botões/foco/selos usam a mesma
+ * tinta do texto (preto/creme invertido no escuro), não uma cor
+ * separada. O verde do overlay de scan por IA é a única cor da
+ * aplicação — deliberadamente à parte, como um efeito tecnológico, não
+ * como cor de marca. Combinado com a referência inarts.netlify.app pra
+ * tipografia (serifa de destaque + mono pra códigos/labels técnicos) e
+ * forma (cantos retos nos cards/imagens contra botões em pílula,
+ * espaçamento generoso). Cores convertidas de hex real dos sites, não
+ * inventadas.
+ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 262 83% 96%;
-    --accent-foreground: 262 83% 30%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 262 83% 58%;
-    --radius: 0.75rem;
+    --background: 40 23% 95%; /* #f5f3ef */
+    --foreground: 40 12% 5%; /* #0e0d0b */
+    --card: 40 23% 95%;
+    --card-foreground: 40 12% 5%;
+    --primary: 40 12% 5%; /* mesma tinta do texto */
+    --primary-foreground: 48 33% 97%;
+    --secondary: 42 24% 92%; /* #efece5 */
+    --secondary-foreground: 40 12% 5%;
+    --muted: 42 24% 92%;
+    --muted-foreground: 41 6% 42%; /* #8a857a escurecido p/ contraste AA */
+    --accent: 42 24% 88%;
+    --accent-foreground: 40 12% 5%;
+    --destructive: 0 70% 42%;
+    --destructive-foreground: 48 33% 97%;
+    --border: 43 18% 80%; /* #d6d1c4 */
+    --input: 43 18% 80%;
+    --ring: 40 12% 5%;
+    --radius: 0px;
+
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+    --font-serif: 'Instrument Serif', 'Times New Roman', serif;
+    --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
-    --card: 240 8% 8%;
-    --card-foreground: 0 0% 98%;
-    --primary: 262 83% 66%;
-    --primary-foreground: 240 10% 4%;
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 262 40% 20%;
-    --accent-foreground: 262 83% 88%;
-    --destructive: 0 63% 40%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 20%;
-    --input: 240 4% 20%;
-    --ring: 262 83% 66%;
+    --background: 40 12% 5%; /* #0e0d0b */
+    --foreground: 40 23% 95%; /* #f5f3ef */
+    --card: 43 19% 7%; /* #16140f */
+    --card-foreground: 40 23% 95%;
+    --primary: 40 23% 95%; /* mesma tinta do texto (creme) */
+    --primary-foreground: 40 12% 5%;
+    --secondary: 36 14% 15%; /* #2a2620 */
+    --secondary-foreground: 40 23% 95%;
+    --muted: 36 14% 15%;
+    --muted-foreground: 41 8% 65%;
+    --accent: 36 14% 20%;
+    --accent-foreground: 40 23% 95%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 40 23% 95%;
+    --border: 36 14% 15%;
+    --input: 36 14% 15%;
+    --ring: 40 23% 95%;
   }
 
   * {
@@ -50,5 +67,6 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 }

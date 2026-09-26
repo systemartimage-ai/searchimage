@@ -1378,6 +1378,110 @@ no ar).
   (`catalog_items.page_url`) mas o RPC/`searchCatalog.ts` não repassa
   esse campo pro client ainda.
 
+## 2026-09-26 — Identidade visual, busca por texto, sistema de tags (EM ANDAMENTO — retomar daqui)
+
+**Contexto:** sessão longa com várias entregas incrementais, sempre
+validadas com teste real antes de avançar (screenshot/Playwright,
+comparação navegador vs Node, foto de gabarito pra confirmar dado no
+banco). Usuário pediu pra salvar tudo antes de encerrar — trabalho
+abaixo está commitado, mas a parte de tags **não terminou**.
+
+**Feito e já commitado:**
+- **Identidade visual** adaptada de verdade (não inventada): pesquisei
+  `artimage.com.br` (branco/off-white + preto, sem cor de marca) e
+  `inarts.netlify.app` (creme editorial, serifa `Instrument Serif` +
+  sans `DM Sans` + mono `DM Mono`, cantos retos + botão pílula). Paleta
+  final é **monocromática de propósito** (preto/creme, sem cor de
+  destaque) — testado e ajustado ao vivo com a usuária (trocou de
+  terracota → verde → preto). Logo real da Artimage (`symbol.svg` do
+  próprio site, salvo em `src/assets`) no login/header/reset de senha.
+  Faixa preta "Sistema de uso interno" no topo de todas as telas.
+- **Bug real corrigido, validado em navegador de verdade**: o
+  Transformers.js usa `dtype: 'q8'` (quantizado) por padrão no
+  navegador (WASM) mas `fp32` no Node — a mesma imagem gerava
+  embeddings diferentes dependendo de onde era calculada (query no
+  navegador sempre um pouco pior que o catálogo indexado no Node).
+  Corrigido forçando `dtype: 'fp32'` em todo lugar
+  (`ClipEmbeddingProvider.ts`, `ClipTextEmbeddingProvider.ts`).
+  Confirmado com Playwright rodando o pipeline real no Chromium.
+- **Bug real corrigido**: reset de senha sempre falhava com "sessão
+  ausente" — o link do Supabase manda `?token_hash=...&type=recovery`
+  na URL, mas a página nunca trocava isso por sessão (`verifyOtp`)
+  antes de chamar `updateUser`. Corrigido em `ResetPasswordPage.tsx`,
+  confirmado funcionando pela usuária com e-mail real.
+- **Busca por texto** (`ClipTextEmbeddingProvider.ts`,
+  `TextSearchBox.tsx`): usa a torre de texto do próprio CLIP (mesmo
+  espaço de embedding das imagens). Traduz pt→en antes de embedar
+  (`Xenova/opus-mt-ROMANCE-en`) só quando o texto parece português
+  (heurística por acentos/stopwords) — sem isso, o tradutor corrompia
+  consultas já em inglês (ex. "lion painting" virava "million-dollar").
+  Validado: "a round mirror" acha os espelhos redondos reais, "um
+  espelho redondo" sozinho (sem traduzir) não achava.
+- Ctrl+V pra colar imagem, botão de anexar mais discreto (só um botão
+  pequeno abre o seletor, não a área inteira), Top 100 por padrão
+  (era 10) com `loading="lazy"`, card "Catálogo Indexado" removido da
+  tela (fica só backend), score técnico removido dos cards, overlay de
+  scan animado (verde) sobre a foto durante a busca.
+
+**Investigação importante (achado, não é bug):** usuária testou
+"leão" e não achou o leão real do catálogo (`ATY585A-153103-1314`,
+confirmado que existe — é uma foto de leão em P&B numa cena de sala).
+Palavra única genérica dá sinal fraco na busca semântica pura ("leão"
+sozinho nem aparece no top 100); frase descritiva funciona ("animal
+Leão" acha em 1º lugar, score 0.29). Usuária apontou corretamente que
+não dá pra depender de como cada usuário escreve — daí o sistema de
+tags abaixo.
+
+**EM ANDAMENTO — sistema de tags estruturadas (não terminou):**
+- Migration `20260926010000_add_tags_and_hybrid_search.sql` — coluna
+  `catalog_items.tags text[]` + índice GIN + RPC
+  `match_catalog_items_hybrid` (filtra por `tags && tag_keywords`
+  antes de ordenar por similaridade; cliente ainda não decidiu chamar
+  essa RPC nem com fallback pra busca semântica pura quando não bate
+  tag nenhuma). **Já aplicada no banco** (confirmei rodando query
+  direta) — mas na primeira tentativa a usuária rodou no projeto
+  Supabase errado (conta tem mais de um projeto) e deu erro de tabela
+  inexistente; rodou no projeto certo na segunda vez.
+- `scripts/generateTags.mjs`: classificação "zero-shot" — reaproveita
+  o embedding já salvo de cada item (não reprocessa imagem nenhuma),
+  compara contra rótulos candidatos em inglês (tipo, tema,
+  categoria/ambiente, cor, animal específico, moldura, formato de
+  espelho). Categorias abertas (tema/categoria/moldura) têm uma opção
+  "nenhum"/"sem moldura" competindo como baseline — sem isso, o CLIP
+  sempre "escolhe a menos ruim" mesmo quando nada se aplica (1ª
+  tentativa com threshold simples gerou tags forçadas tipo "infantil"
+  em quase todo item; 2ª tentativa com baseline ficou bem melhor,
+  3-6 tags por item, só quando faz sentido).
+- **Rodado só em 30 itens de teste** (não em todos os ~28.658).
+  Qualidade da 2ª versão ficou boa o suficiente pra seguir, mas não
+  validei mais a fundo (ex. não testei se "leão" agora bate a tag
+  `leao` do item ATY585A).
+
+**Falta fazer, nessa ordem, ao retomar:**
+1. Confirmar que o item do leão realmente recebeu a tag `leao` (rodar
+   `generateTags.mjs` nele especificamente ou checar depois do run
+   completo).
+2. Rodar `generateTags.mjs` sem `--limit` pra classificar todos os
+   ~28.658 itens (é rápido — só matemática sobre embedding já salvo,
+   não reprocessa imagem; o teste de 30 itens rodou em segundos).
+3. **Ligar a busca híbrida no client** — hoje `searchCatalog.ts` ainda
+   chama `match_catalog_items` (a RPC antiga, só semântica). Precisa:
+   extrair palavras-chave da consulta em português (antes de traduzir,
+   já que as tags são em português), chamar
+   `match_catalog_items_hybrid` com essas palavras, e se vier vazio
+   (nenhuma tag bateu) cair pro semântico puro — essa lógica de
+   fallback fica no client, não dá pra fazer só em SQL.
+4. Testar de ponta a ponta: "leão" sozinho deve achar o item real
+   depois disso.
+5. Rodar `generateTags.mjs` de novo (ou só nos itens novos) toda vez
+   que subir mais fotos locais ou reindexar o site — hoje é um passo
+   manual separado, não está automático dentro de
+   `uploadLocalPhotos.mjs`/`indexCatalog.mjs`.
+
+**Estado do repositório:** tudo commitado nesta entrada (ver `git log`
+pra confirmar o hash). Migration de tags já aplicada no banco; script
+de geração existe mas só rodou parcialmente.
+
 ---
 
 # PRIMEIRA EXECUÇÃO DO PROJETO

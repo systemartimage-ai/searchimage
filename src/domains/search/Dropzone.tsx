@@ -1,6 +1,7 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ScanOverlay } from './ScanOverlay'
 
 interface DropzoneProps {
   previewUrl: string | null
@@ -8,6 +9,8 @@ interface DropzoneProps {
   onRemove: () => void
   onSearch: () => void
   searching: boolean
+  /** Texto do overlay de scan enquanto `searching` é true (ex.: etapa atual do pipeline). */
+  scanLabel?: string
 }
 
 export function Dropzone({
@@ -16,9 +19,26 @@ export function Dropzone({
   onRemove,
   onSearch,
   searching,
+  scanLabel,
 }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+
+  // Ctrl+V em qualquer lugar da página cola a imagem, sem precisar
+  // clicar em nada antes — mesmo comportamento do drag-and-drop, só
+  // que via colar. Ignora silenciosamente se o que foi colado não for
+  // imagem (ex. colar texto em outro campo continua funcionando normal).
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const imageItem = Array.from(e.clipboardData?.items ?? []).find((item) =>
+        item.type.startsWith('image/'),
+      )
+      const file = imageItem?.getAsFile()
+      if (file) onSelectFile(file)
+    }
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [onSelectFile])
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault()
@@ -36,11 +56,14 @@ export function Dropzone({
   if (previewUrl) {
     return (
       <div className="flex w-full flex-col items-center gap-4">
-        <img
-          src={previewUrl}
-          alt="Prévia da imagem de consulta"
-          className="max-h-72 rounded-lg border border-border object-contain"
-        />
+        <div className="relative">
+          <img
+            src={previewUrl}
+            alt="Prévia da imagem de consulta"
+            className="max-h-72 rounded-lg border border-border object-contain"
+          />
+          {searching && <ScanOverlay label={scanLabel ?? 'Analisando com IA...'} />}
+        </div>
         <div className="flex flex-wrap justify-center gap-2">
           <Button variant="outline" onClick={() => inputRef.current?.click()}>
             Trocar imagem
@@ -63,12 +86,12 @@ export function Dropzone({
     )
   }
 
+  // O clique pra abrir o seletor de arquivo fica só no botão pequeno,
+  // não na área inteira — antes, clicar em qualquer lugar (inclusive
+  // sem querer, só pra focar a página antes de dar Ctrl+V) já abria o
+  // seletor de arquivo do SO, atrapalhando quem só queria colar.
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && inputRef.current?.click()}
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -76,14 +99,17 @@ export function Dropzone({
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       className={cn(
-        'flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-6 py-16 text-center transition-colors hover:border-primary/50 hover:bg-accent/40',
+        'flex w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border px-6 py-16 text-center transition-colors',
         dragOver && 'border-primary bg-accent/60',
       )}
     >
       <p className="text-lg font-medium text-foreground">
-        Arraste uma imagem aqui ou clique para selecionar
+        Arraste uma imagem aqui ou cole com Ctrl+V
       </p>
       <p className="text-sm text-muted-foreground">JPG, PNG ou WebP — até 10MB</p>
+      <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+        Selecionar arquivo
+      </Button>
       <input
         ref={inputRef}
         type="file"

@@ -48,6 +48,25 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        serif: ['var(--font-serif)'],
+        mono: ['var(--font-mono)'],
+      },
+      keyframes: {
+        'scan-sweep': {
+          '0%, 100%': { top: '0%' },
+          '50%': { top: '100%' },
+        },
+        'scan-pulse': {
+          '0%, 100%': { opacity: '0.4' },
+          '50%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'scan-sweep': 'scan-sweep 2.2s ease-in-out infinite',
+        'scan-pulse': 'scan-pulse 1.8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

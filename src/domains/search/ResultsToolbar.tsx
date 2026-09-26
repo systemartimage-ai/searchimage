@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label'
 // Categorias reais do REAL_CATALOG_SAMPLE (site-fonte artimage.com.br:
 // art-gallery, collectibles, artsy, mirror-design) — ver realCatalogSample.ts.
 const CATEGORIES = ['Quadros', 'Colecionáveis', 'Artsy', 'Espelhos']
-const LIMIT_OPTIONS = [10, 20, 50]
+const LIMIT_OPTIONS = [10, 20, 50, 100]
 
 interface ResultsToolbarProps {
   limit: number
@@ -62,7 +62,7 @@ export function ResultsToolbar({
         <Label htmlFor="filter-code">Código</Label>
         <Input
           id="filter-code"
-          placeholder="ex.: MOCK-0001"
+          placeholder="ex.: jn005a"
           value={code}
           onChange={(e) => onCodeChange(e.target.value)}
           className="h-9 w-40"

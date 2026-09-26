@@ -11,7 +11,7 @@ interface ResultsSectionProps {
 }
 
 export function ResultsSection({ status, results, onFiltersChange }: ResultsSectionProps) {
-  const [limit, setLimit] = useState(10)
+  const [limit, setLimit] = useState(100)
   const [category, setCategory] = useState('')
   const [code, setCode] = useState('')
 
@@ -23,16 +23,10 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
     onFiltersChange(merged)
   }
 
-  if (status === 'embedding' || status === 'searching') {
-    return (
-      <div className="flex w-full flex-col items-center gap-2 py-12 text-muted-foreground">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        <p>
-          {status === 'embedding' ? 'Gerando embedding da imagem...' : 'Pesquisando no catálogo...'}
-        </p>
-      </div>
-    )
-  }
+  // O feedback de carregamento agora é o overlay de scan em cima da
+  // própria foto anexada (Dropzone/ScanOverlay) — mais visível do que
+  // um spinner aqui embaixo, que passava despercebido.
+  if (status === 'embedding' || status === 'searching') return null
 
   if (status === 'empty') {
     return (

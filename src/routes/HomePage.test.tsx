@@ -61,6 +61,11 @@ vi.mock('@/domains/embedding', () => ({
       return new Array(512).fill(1 / Math.sqrt(512))
     }
   },
+  ClipTextEmbeddingProvider: class {
+    async embedText() {
+      return new Array(512).fill(1 / Math.sqrt(512))
+    }
+  },
 }))
 
 function renderHomePage() {
@@ -89,8 +94,9 @@ describe('HomePage — fluxo de busca (amostra real do catálogo)', () => {
   it('mostra o estado inicial com dropzone e cards de fonte', () => {
     renderHomePage()
     expect(screen.getByText(/arraste uma imagem/i)).toBeInTheDocument()
-    expect(screen.getByText('Catálogo Indexado')).toBeInTheDocument()
-    expect(screen.getByText('Diretório Local')).toBeInTheDocument()
+    // Catálogo Indexado é infraestrutura de backend — não deve aparecer
+    // na tela (o usuário não precisa saber que essa fonte existe).
+    expect(screen.queryByText('Catálogo Indexado')).not.toBeInTheDocument()
   })
 
   it('rejeita arquivo com formato não suportado (soltado via drag-and-drop)', async () => {
@@ -99,7 +105,7 @@ describe('HomePage — fluxo de busca (amostra real do catálogo)', () => {
     // O <input accept="image/*"> filtra tipos inválidos no picker do SO,
     // então para testar a validação manual (que também cobre drag-and-drop,
     // onde `accept` não se aplica) simulamos o drop diretamente.
-    const dropzone = screen.getByText(/arraste uma imagem/i).closest('[role=button]')!
+    const dropzone = screen.getByText(/arraste uma imagem/i).closest('div')!
     const file = makeFile('doc.pdf', 'application/pdf')
     fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
 
@@ -124,9 +130,9 @@ describe('HomePage — fluxo de busca (amostra real do catálogo)', () => {
       },
     )
 
-    // 20 itens em REAL_CATALOG_SAMPLE, Top 10 por padrão.
+    // Mock de supabase.rpc tem 5 linhas fixas (FAKE_ROWS), Top 100 por padrão.
     const cards = screen.getAllByRole('button', { name: /copiar código/i })
-    expect(cards.length).toBeLessThanOrEqual(10)
+    expect(cards.length).toBeLessThanOrEqual(100)
     expect(cards.length).toBeGreaterThan(0)
   })
 

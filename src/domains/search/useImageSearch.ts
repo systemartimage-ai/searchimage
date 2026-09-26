@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { ClipEmbeddingProvider } from '@/domains/embedding'
-import { searchMockCatalog, type SearchResult } from './searchMockCatalog'
+import { searchCatalog } from './searchCatalog'
+import type { SearchResult } from './searchMockCatalog'
 
 export type SearchStatus =
   'idle' | 'preview' | 'embedding' | 'searching' | 'success' | 'empty' | 'error'
@@ -75,12 +76,8 @@ export function useImageSearch() {
         const embedding = await provider.embedImage(file)
         embeddingRef.current = embedding
         setStatus('searching')
-        // Pequeno atraso simulado: no mock não há round-trip real de rede,
-        // mas os estados "gerando embedding"/"pesquisando" precisam ser
-        // visíveis e testáveis (05_FRONTEND_UX.md).
-        await new Promise((resolve) => setTimeout(resolve, 400))
 
-        const found = searchMockCatalog(embedding, options)
+        const found = await searchCatalog(embedding, options)
         setResults(found)
         setStatus(found.length === 0 ? 'empty' : 'success')
       } catch {
@@ -92,11 +89,16 @@ export function useImageSearch() {
   )
 
   /** Reaplica filtros (limite/categoria/código) sem regerar o embedding. */
-  const applyFilters = useCallback((options: SearchOptions) => {
+  const applyFilters = useCallback(async (options: SearchOptions) => {
     if (!embeddingRef.current) return
-    const found = searchMockCatalog(embeddingRef.current, options)
-    setResults(found)
-    setStatus(found.length === 0 ? 'empty' : 'success')
+    try {
+      const found = await searchCatalog(embeddingRef.current, options)
+      setResults(found)
+      setStatus(found.length === 0 ? 'empty' : 'success')
+    } catch {
+      setErrorMessage('Não foi possível pesquisar. Tente novamente.')
+      setStatus('error')
+    }
   }, [])
 
   return {

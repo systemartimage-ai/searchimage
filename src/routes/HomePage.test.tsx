@@ -9,8 +9,46 @@ import { HomePage } from './HomePage'
 // do Supabase não estiverem definidas (é o comportamento correto em
 // produção, mas em CI/teste essas variáveis não existem). Mockamos o
 // módulo para isolar o teste de UI da configuração de ambiente.
+//
+// A busca real agora passa por supabase.rpc('match_catalog_items', ...)
+// (ver searchCatalog.ts) — mockamos com uma amostra fixa (mesma forma
+// dos dados reais: title/code/category/source/thumbnail_url/score) e
+// aplicamos os filtros de categoria/código/limite manualmente, só o
+// suficiente pros testes de UI abaixo não dependerem de rede.
+const FAKE_ROWS = [
+  { id: '1', title: 'EM BUSCA DA PAZ', code: 'ta050a-pend-comp', category: 'Quadros', source: 'Artimage', thumbnail_url: 'a.jpg', score: 1 },
+  { id: '2', title: 'TRAMA VIVA', code: 'kj655a-3610-ac', category: 'Colecionáveis', source: 'Artimage', thumbnail_url: 'b.jpg', score: 0.9 },
+  { id: '3', title: 'ARTSY', code: 'aty1938a-1361-comp', category: 'Artsy', source: 'Artimage', thumbnail_url: 'c.jpg', score: 0.9 },
+  { id: '4', title: 'LEAF', code: 'leaf-55190-ng', category: 'Espelhos', source: 'Artimage', thumbnail_url: 'd.jpg', score: 0.9 },
+  { id: '5', title: 'ELM', code: 'elm-100-ng', category: 'Espelhos', source: 'Artimage', thumbnail_url: 'e.jpg', score: 0.85 },
+]
+
+// Encadeável genérico pra SourceCards (supabase.from(...).select(...).eq()
+// .order().limit().maybeSingle(), ou só await direto no .select()) — os
+// testes abaixo não checam o texto que isso alimenta, só não pode
+// lançar/rejeitar sem tratamento.
+function chainable(): Record<string, unknown> {
+  const node: Record<string, unknown> = {
+    then: (resolve: (v: { data: null; count: number }) => void) => resolve({ data: null, count: FAKE_ROWS.length }),
+  }
+  for (const method of ['select', 'eq', 'order', 'limit']) node[method] = () => chainable()
+  node.maybeSingle = async () => ({ data: null })
+  return node
+}
+
 vi.mock('@/lib/supabase', () => ({
-  supabase: { auth: { signOut: vi.fn() } },
+  supabase: {
+    auth: { signOut: vi.fn() },
+    from: () => chainable(),
+    rpc: async (_fn: string, args: { match_category?: string; match_code?: string; match_limit: number }) => {
+      const filtered = FAKE_ROWS.filter(
+        (r) =>
+          (!args.match_category || r.category === args.match_category) &&
+          (!args.match_code || r.code.toLowerCase().includes(args.match_code.toLowerCase())),
+      ).slice(0, args.match_limit)
+      return { data: filtered, error: null }
+    },
+  },
 }))
 
 // ClipEmbeddingProvider roda um modelo de IA real (download + inferência):

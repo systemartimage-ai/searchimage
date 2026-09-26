@@ -16,6 +16,12 @@ coverage
 # Cache local da Supabase CLI
 supabase/.temp
 
+# Estado local do indexador (sessão de login = cookie, checkpoint de
+# progresso) — nunca deve ir pro repositório.
+.indexer-session.json
+.indexer-checkpoint.json
+.indexer-full-run.log
+
 # Environment / secrets
 .env
 .env.*

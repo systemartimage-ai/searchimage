@@ -1286,6 +1286,98 @@ modificados/novos ficaram no working tree) — usuário pediu pra "salvar
 tudo" antes de fechar; ver se isso virou commit local checando `git
 log` ao retomar.
 
+## 2026-09-26 — Catálogo completo indexado e ACTIVE (Fase 5 concluída pro site-fonte)
+
+**Retomado** da nota "PARADO AQUI" acima. Usuário confirmou migration
+aplicada (validei direto no banco, não só de palavra), pediu pra seguir
+com o site inteiro mesmo (~7.000 itens) e escolheu CLIP local
+(`ClipEmbeddingProvider`, sem custo) como provider.
+
+**Indexador (`scripts/indexCatalog.mjs` + `scripts/runIndexerWithRestart.sh`):**
+- `sources` criada (`Artimage`), `index_versions` criada com
+  `status='BUILDING'`.
+- Bugs reais encontrados e corrigidos rodando de verdade (não só por
+  inspeção de código):
+  - `waitUntil: 'networkidle'` travava (tráfego de fundo/analytics do
+    site nunca fica ocioso) → trocado por `domcontentloaded` +
+    `waitForSelector('.item-wrapper')`.
+  - `.upsert(..., { onConflict: 'source_id,external_id' })` falhava
+    ("no unique or exclusion constraint matching") porque o índice
+    único é parcial (`where external_id is not null`) e o PostgREST não
+    monta o `ON CONFLICT` com predicado — trocado por
+    select-then-insert/update manual.
+  - Checkpoint inicial marcava página como "feita" mesmo quando todos
+    os itens da página falhavam no upsert (bug acoplado ao de cima) —
+    corrigido pra só marcar página feita se nenhum item falhou.
+  - Um soluço de rede (DNS) no meio da execução causou uma cascata de
+    "navigation interrupted" na mesma aba do Playwright → indexador
+    ganhou retry (3 tentativas com pausa) e abre aba nova se insistir.
+  - O processo Node morreu sozinho (sem stack trace — sinal de
+    OOM/crash nativo do Chromium headless de longa duração) depois de
+    ~39 páginas. Como o checkpoint já protegia contra perda de dado,
+    a solução foi um wrapper (`runIndexerWithRestart.sh`) que reinicia
+    o processo sozinho enquanto ele sair com erro — não tentei
+    diagnosticar a causa raiz do crash nativo, não valia o tempo.
+- **Resultado:** ~7.000 páginas percorridas (157+37+55+4), **6.967
+  itens reais gravados** em `catalog_items` (estimativa inicial era
+  ~7.084 — bateu). Tempo real: ~1.2-1.8s/item (download + embedding
+  CLIP local), total de umas 2-3h corridas incluindo as paradas pra
+  corrigir bugs.
+- Sessão de login (`.indexer-session.json`) apagada ao final —
+  temporária, nunca commitada (gitignored).
+
+**Validação antes de promover:** testei 4 buscas reais (uma por
+categoria) contra o catálogo completo via RPC — item idêntico sempre
+em 1º (score 1.0), seguido de itens visual/tematicamente relacionados
+com score ~0.85–0.93. Ranking fazendo sentido; não promovi antes de
+checar isso.
+
+**`index_versions` promovida pra `ACTIVE`** (a única ativa até agora —
+não havia nenhuma antes, então não teve risco de derrubar uma busca já
+no ar).
+
+**Front-end religado pro catálogo real:**
+- `src/domains/search/searchCatalog.ts` (novo): chama
+  `supabase.rpc('match_catalog_items', ...)` — a RLS de
+  `catalog_items` já filtra pra só o índice `ACTIVE`, não precisou
+  replicar esse filtro no client.
+- `useImageSearch.ts`: `runSearch`/`applyFilters` agora usam
+  `searchCatalog` (async, round-trip real) em vez do
+  `searchMockCatalog` local; removido o delay simulado de 400ms (não
+  precisa mais, já tem round-trip real).
+- `SourceCards.tsx`: card "Catálogo Indexado" busca contagem/data real
+  do Supabase (`count` de `catalog_items` + `activated_at` do
+  `index_versions` ACTIVE) em vez de um número estático.
+- `searchMockCatalog.ts`/`REAL_CATALOG_SAMPLE`/`MOCK_CATALOG`
+  continuam existindo só para os testes de unidade da lógica de
+  similaridade — não fazem mais parte do caminho real do app.
+- `HomePage.test.tsx`: mock de `@/lib/supabase` ganhou `.from()`
+  (chainable genérico) e `.rpc()` (amostra fixa filtrável por
+  categoria/código) pra não depender de rede real.
+
+**Testes:** lint/typecheck/`vitest run` (25/25)/`build` limpos.
+
+**Pendências:**
+- Validação visual manual do fluxo completo (login → upload → busca
+  real com os 6.967 itens) no navegador — pedida ao usuário, não feita
+  por mim nesta etapa (mesma limitação de sempre: não posso logar sem
+  criar mais contas de teste).
+- 4 itens do site-fonte nunca entraram (3 erros + 1 pulado dos ~6.971
+  esperados) — não investiguei quais; não bloqueia nada, é uma fração
+  irrelevante do catálogo.
+- Causa raiz do crash nativo do Chromium headless não foi diagnosticada
+  (contornada com o wrapper de reinício) — se voltar a acontecer com
+  frequência alta, vale investigar de verdade (ex.: memória, versão do
+  Chromium).
+- Threshold de similaridade "oficial" pra UI (ex.: esconder resultados
+  abaixo de X) ainda não foi decidido/configurado — hoje a busca
+  retorna por ordem de score sem cortar nada, a menos que o usuário
+  passe `threshold` explícito.
+- `"Abrir original"` nos cards de resultado continua desligado mesmo
+  pros itens reais — `page_url` já está salvo no banco
+  (`catalog_items.page_url`) mas o RPC/`searchCatalog.ts` não repassa
+  esse campo pro client ainda.
+
 ---
 
 # PRIMEIRA EXECUÇÃO DO PROJETO

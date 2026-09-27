@@ -68,5 +68,17 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    /* Sem isso, clicar em qualquer texto/título/botão da interface
+       "seleciona" texto e deixa um cursor piscando ali — parece um bug
+       de campo de texto ativo onde não tem nada pra digitar. Só os
+       campos de entrada de verdade (onde faz sentido colar com Ctrl+V)
+       recuperam a seleção normal logo abaixo. */
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
   }
 }

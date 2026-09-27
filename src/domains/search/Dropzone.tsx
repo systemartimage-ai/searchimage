@@ -8,8 +8,11 @@ interface DropzoneProps {
   onSelectFile: (file: File) => void
   onRemove: () => void
   onSearch: () => void
+  /** Desabilita os controles enquanto QUALQUER busca roda (imagem ou texto). */
   searching: boolean
-  /** Texto do overlay de scan enquanto `searching` é true (ex.: etapa atual do pipeline). */
+  /** Mostra o overlay de scan só quando a busca em andamento foi disparada por ESTA caixa. */
+  scanActive: boolean
+  /** Texto do overlay de scan enquanto `scanActive` é true (ex.: etapa atual do pipeline). */
   scanLabel?: string
 }
 
@@ -19,6 +22,7 @@ export function Dropzone({
   onRemove,
   onSearch,
   searching,
+  scanActive,
   scanLabel,
 }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -62,7 +66,7 @@ export function Dropzone({
             alt="Prévia da imagem de consulta"
             className="max-h-72 rounded-lg border border-border object-contain"
           />
-          {searching && <ScanOverlay label={scanLabel ?? 'Analisando com IA...'} />}
+          {scanActive && <ScanOverlay label={scanLabel ?? 'Analisando com IA...'} />}
         </div>
         <div className="flex flex-wrap justify-center gap-2">
           <Button variant="outline" onClick={() => inputRef.current?.click()}>

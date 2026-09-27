@@ -13,13 +13,19 @@ export function Header() {
     // app) — é a identidade fixa da marca, não a paleta de conteúdo.
     <div className="bg-[#0e0d0b] text-[#f5f3ef]">
       <InternalUseBanner />
-      <header className="flex items-center justify-between border-t border-white/10 px-4 py-3 sm:px-6">
-        <Link to="/" className="flex items-center gap-2.5">
-          <ArtimageSymbol className="h-6 w-auto text-[#f5f3ef]" />
-          <span className="font-serif text-lg italic tracking-tight">Search Image</span>
-        </Link>
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center border-t border-white/10 px-4 py-3 sm:px-6">
+        <div />
 
-        <div className="flex items-center gap-4 text-sm">
+        <a
+          href="https://www.artimage.com.br"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center"
+        >
+          <ArtimageSymbol className="h-9 w-auto text-[#f5f3ef]" />
+        </a>
+
+        <div className="flex items-center justify-end gap-4 text-sm">
           {session && <span className="hidden text-white/60 sm:inline">{session.user.email}</span>}
           {role === 'ADMIN' && (
             <Link to="/admin" className="text-white/60 hover:text-white">

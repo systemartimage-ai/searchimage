@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SearchResult } from './searchMockCatalog'
 import type { SearchStatus } from './useImageSearch'
 import { ResultsToolbar } from './ResultsToolbar'
@@ -14,6 +14,20 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
   const [limit, setLimit] = useState(100)
   const [category, setCategory] = useState('')
   const [code, setCode] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Assim que a busca termina (achou algo ou não), desce a página
+  // sozinha até aqui — sem isso o usuário precisava rolar manualmente
+  // pra ver os resultados, que ficam abaixo da caixa de busca. Só
+  // dispara na transição pra 'success'/'empty' (não fica re-rolando a
+  // cada ajuste de filtro, já que o status continua o mesmo).
+  useEffect(() => {
+    if (status === 'success' || status === 'empty') {
+      // scrollIntoView não existe em jsdom (ambiente de teste) — só
+      // no navegador real.
+      containerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    }
+  }, [status])
 
   function update(next: Partial<{ limit: number; category: string; code: string }>) {
     const merged = { limit, category, code, ...next }
@@ -30,7 +44,7 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
 
   if (status === 'empty') {
     return (
-      <div className="flex w-full flex-col gap-6">
+      <div ref={containerRef} className="flex w-full flex-col gap-6">
         <ResultsToolbar
           limit={limit}
           category={category}
@@ -49,7 +63,7 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
   if (status !== 'success') return null
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div ref={containerRef} className="flex w-full flex-col gap-6">
       <ResultsToolbar
         limit={limit}
         category={category}

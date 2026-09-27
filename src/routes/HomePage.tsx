@@ -10,6 +10,7 @@ export function HomePage() {
   const localDirectory = useLocalDirectory()
   const {
     status,
+    searchMode,
     previewUrl,
     results,
     errorMessage,
@@ -32,8 +33,8 @@ export function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-14 px-4 py-14 sm:py-20">
-        <div className="flex flex-col items-center gap-8 text-center">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-6 sm:py-8">
+        <div className="flex flex-col items-center gap-6 text-center">
           <div>
             <h1 className="font-serif text-5xl italic tracking-tight text-foreground sm:text-6xl">
               Search Image
@@ -50,11 +51,14 @@ export function HomePage() {
               onRemove={clear}
               onSearch={() => runSearch({ limit: 100 })}
               searching={isBusy}
+              scanActive={isBusy && searchMode === 'image'}
               scanLabel={scanLabel}
             />
             <TextSearchBox
               onSearch={(text) => runTextSearch(text, { limit: 100 })}
               searching={isBusy}
+              scanActive={isBusy && searchMode === 'text'}
+              scanLabel={scanLabel}
             />
           </div>
 

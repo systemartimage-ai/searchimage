@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# App de página única (React Router) — sem isso, acessar/atualizar uma
+# rota direta (ex. /admin, /reset-password) dá 404 no Netlify, porque
+# ele tentaria servir um arquivo físico que não existe naquele caminho.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

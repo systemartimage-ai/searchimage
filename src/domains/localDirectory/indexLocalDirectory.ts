@@ -3,26 +3,37 @@ import { cacheKey, getCachedEmbedding, setCachedEmbedding } from './embeddingCac
 import { createThumbnailUrl } from './thumbnail'
 import { embedInWorker } from './clipWorkerClient'
 
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const ACCEPTED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp'])
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot === -1 ? '' : name.slice(dot).toLowerCase()
+}
 
 /**
  * Enumera arquivos de imagem dentro de um FileSystemDirectoryHandle já
  * autorizado pelo usuário. `includeSubfolders` controla se desce
  * recursivamente nas subpastas ou só olha o nível raiz da pasta
  * selecionada.
+ *
+ * Filtra pela EXTENSÃO do nome (sem abrir o arquivo) antes de decidir
+ * se vale a pena chamar `getFile()` — achado real testando com uma
+ * pasta grande: abrir todo arquivo só pra checar o MIME type (mesmo
+ * os que não são imagem) deixava a pasta inteira "Indexando... 0" por
+ * muito tempo, sem nenhum progresso visível até terminar de varrer
+ * tudo (mesmo problema já corrigido antes na varredura do upload
+ * admin, ver src/domains/admin/bulkUpload/scanFolder.ts).
  */
-async function* walkImageFiles(
+/** Exportada só pra teste isolado (ver indexLocalDirectory.test.ts). */
+export async function* walkImageFiles(
   dirHandle: FileSystemDirectoryHandle,
   includeSubfolders: boolean,
 ): AsyncGenerator<File> {
   for await (const entry of dirHandle.values()) {
     if (entry.kind === 'directory') {
       if (includeSubfolders) yield* walkImageFiles(entry, includeSubfolders)
-    } else if (entry.kind === 'file') {
-      const file = await entry.getFile()
-      if (ACCEPTED_TYPES.includes(file.type)) {
-        yield file
-      }
+    } else if (entry.kind === 'file' && ACCEPTED_EXT.has(extensionOf(entry.name))) {
+      yield await entry.getFile()
     }
   }
 }

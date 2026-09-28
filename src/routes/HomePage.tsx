@@ -3,11 +3,11 @@ import { Dropzone } from '@/domains/search/Dropzone'
 import { TextSearchBox } from '@/domains/search/TextSearchBox'
 import { SourceCards } from '@/domains/search/SourceCards'
 import { ResultsSection } from '@/domains/search/ResultsSection'
-import { useImageSearch } from '@/domains/search/useImageSearch'
-import { useLocalDirectory } from '@/domains/localDirectory/useLocalDirectory'
+import { useImageSearchContext } from '@/domains/search/useImageSearchContext'
+import { useLocalDirectoryContext } from '@/domains/localDirectory/useLocalDirectoryContext'
 
 export function HomePage() {
-  const localDirectory = useLocalDirectory()
+  const localDirectory = useLocalDirectoryContext()
   const {
     status,
     searchMode,
@@ -19,7 +19,7 @@ export function HomePage() {
     runSearch,
     runTextSearch,
     applyFilters,
-  } = useImageSearch(localDirectory.items)
+  } = useImageSearchContext()
 
   const isBusy = status === 'embedding' || status === 'searching'
   const showResults = ['embedding', 'searching', 'success', 'empty'].includes(status)

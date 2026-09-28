@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { useBulkUpload } from './useBulkUpload'
+import { useBulkUploadContext } from './useBulkUploadContext'
 import { ScanSummary } from './ScanSummary'
 import { UploadProgress } from './UploadProgress'
 import { ErrorList } from './ErrorList'
 
 export function BulkUploadPanel() {
-  const bulk = useBulkUpload()
+  const bulk = useBulkUploadContext()
 
   if (!bulk.supported) {
     return (

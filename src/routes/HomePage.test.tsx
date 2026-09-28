@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthContext } from '@/domains/auth/context'
+import { SearchSessionProvider } from '@/domains/search/SearchSessionProvider'
 import { HomePage } from './HomePage'
 
 // HomePage -> Header -> '@/lib/supabase', que lança erro se as env vars
@@ -80,7 +81,9 @@ function renderHomePage() {
       }}
     >
       <MemoryRouter>
-        <HomePage />
+        <SearchSessionProvider>
+          <HomePage />
+        </SearchSessionProvider>
       </MemoryRouter>
     </AuthContext.Provider>,
   )

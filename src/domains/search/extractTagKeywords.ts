@@ -1,5 +1,17 @@
 import { ALL_TAG_VALUES } from '@/domains/catalog/tagTaxonomy'
 
+/**
+ * Sinônimos em inglês pra tags específicas — usuário final pode digitar em
+ * inglês (ex. "mirror" em vez de "espelho"), e ALL_TAG_VALUES só tem os
+ * rótulos em português salvos como tag. Acrescenta a palavra em português
+ * equivalente na lista de palavras da consulta, sem substituir a original,
+ * pra reaproveitar o casamento/tolerância a erro de digitação já existente.
+ */
+const EN_TAG_SYNONYMS: Record<string, string> = {
+  mirror: 'espelho',
+  mirrors: 'espelho',
+}
+
 function normalize(text: string): string {
   return text
     .toLowerCase()
@@ -59,6 +71,7 @@ export function extractTagKeywords(query: string): string[] {
   const queryWords = normalize(query)
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
+    .flatMap((w) => (EN_TAG_SYNONYMS[w] ? [w, EN_TAG_SYNONYMS[w]] : [w]))
   const found: string[] = []
 
   for (const tag of ALL_TAG_VALUES) {

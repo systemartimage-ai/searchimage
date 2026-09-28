@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { TAG_CATEGORIES } from '@/domains/catalog/tagTaxonomy'
 import { classifyTags, type TagLabelEmbeddings } from '@/domains/catalog/tagClassifier'
-import { classifyTipoByPrototype, type TipoPrototypes } from '@/domains/catalog/classifyTipoByPrototype'
+import { resolveTipoTag, type TipoPrototypes } from '@/domains/catalog/classifyTipoByPrototype'
 import { embedInWorker } from '@/domains/localDirectory/clipWorkerClient'
 import { compressForStorage } from './compressForStorage'
 import { buildExternalId, buildStoragePath, deriveMetadataFromPath } from './bulkUploadLogic'
@@ -66,10 +66,12 @@ export async function processEntry(
     }
   }
 
+  const metadata = deriveMetadataFromPath(entry)
+
   let tags: string[]
   try {
     tags = classifyTags(embedding, TAG_CATEGORIES, deps.labelEmbeddings)
-    const tipo = classifyTipoByPrototype(embedding, deps.tipoPrototypes)
+    const tipo = resolveTipoTag(embedding, deps.tipoPrototypes, metadata.category)
     if (tipo) tags.push(tipo)
   } catch (err) {
     return {
@@ -96,7 +98,6 @@ export async function processEntry(
   }
 
   const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
-  const metadata = deriveMetadataFromPath(entry)
 
   const { error: insertError } = await supabase.from('catalog_items').insert({
     source_id: deps.sourceId,

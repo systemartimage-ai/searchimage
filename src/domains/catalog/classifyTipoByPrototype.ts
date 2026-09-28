@@ -45,3 +45,24 @@ export function classifyTipoByPrototype(
   if (margin < MARGIN_THRESHOLD) return null
   return mirrorSim > paintingSim ? 'espelho' : 'quadro'
 }
+
+/** Categoria de origem no site-fonte que já identifica o item como espelho de verdade (página "Mirror"). */
+export const MIRROR_SOURCE_CATEGORY = 'Espelhos'
+
+/**
+ * Resolve a tag de tipo com prioridade pro dado de origem: se o item veio
+ * da categoria "Espelhos" do site-fonte (página Mirror, ver
+ * MIRROR_SOURCE_CATEGORY), essa classificação é mais confiável que a visual
+ * por protótipo — é a própria origem confirmando o tipo, não uma inferência.
+ * Achado real: 29 dos 91 itens dessa categoria ficaram sem tag (margem do
+ * classificador visual abaixo do limiar) e 1 ficou com a tag errada
+ * ('quadro') — o dado de origem corrige os dois casos.
+ */
+export function resolveTipoTag(
+  embedding: number[],
+  prototypes: TipoPrototypes,
+  sourceCategory: string | null | undefined,
+): 'espelho' | 'quadro' | null {
+  if (sourceCategory === MIRROR_SOURCE_CATEGORY) return 'espelho'
+  return classifyTipoByPrototype(embedding, prototypes)
+}

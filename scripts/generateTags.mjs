@@ -27,7 +27,7 @@ import { createClient } from '@supabase/supabase-js'
 import { CLIP_MODEL_ID } from '../src/domains/embedding/ClipEmbeddingProvider.ts'
 import { TAG_CATEGORIES } from '../src/domains/catalog/tagTaxonomy.ts'
 import { classifyCategory } from '../src/domains/catalog/tagClassifier.ts'
-import { classifyTipoByPrototype } from '../src/domains/catalog/classifyTipoByPrototype.ts'
+import { resolveTipoTag } from '../src/domains/catalog/classifyTipoByPrototype.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
@@ -130,7 +130,7 @@ async function main() {
     const embedding = typeof item.embedding === 'string' ? JSON.parse(item.embedding) : item.embedding
 
     const tags = []
-    const tipo = classifyTipoByPrototype(embedding, tipoPrototypes)
+    const tipo = resolveTipoTag(embedding, tipoPrototypes, item.metadata?.category)
     if (tipo) tags.push(tipo)
     for (const [catName, catDef] of Object.entries(TAG_CATEGORIES)) {
       if (catDef.onlyIfHasTag && !tags.includes(catDef.onlyIfHasTag)) continue

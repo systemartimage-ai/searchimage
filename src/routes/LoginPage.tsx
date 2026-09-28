@@ -11,7 +11,7 @@ export function LoginPage() {
         <Card className="w-full">
           <CardHeader className="text-center">
             <ArtimageSymbol className="mx-auto mb-2 h-10 w-auto text-foreground" />
-            <CardTitle className="font-serif text-3xl italic">Search Image</CardTitle>
+            <CardTitle className="font-serif text-3xl italic">Artimage Search</CardTitle>
             <p className="text-sm text-muted-foreground">Entre para pesquisar por imagem</p>
           </CardHeader>
           <CardContent>

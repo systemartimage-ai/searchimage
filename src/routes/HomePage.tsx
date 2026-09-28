@@ -37,7 +37,7 @@ export function HomePage() {
         <div className="flex flex-col items-center gap-6 text-center">
           <div>
             <h1 className="font-serif text-5xl italic tracking-tight text-foreground sm:text-6xl">
-              Search Image
+              Artimage Search
             </h1>
             <p className="mt-3 text-sm uppercase tracking-[0.2em] text-muted-foreground">
               Envie uma imagem ou descreva o que procura

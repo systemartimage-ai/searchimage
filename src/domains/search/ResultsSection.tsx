@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import type { SearchResult } from './searchMockCatalog'
 import type { SearchStatus } from './useImageSearch'
 import { ResultsToolbar } from './ResultsToolbar'
 import { ResultCard } from './ResultCard'
 
+// Quantos resultados a mais o botão "Carregar mais" busca por clique —
+// pedido do usuário: abre 100, e ao chegar no fim dá pra pedir mais 100,
+// de novo e de novo, em vez de já abrir tudo de uma vez.
+const LOAD_MORE_STEP = 100
+
 interface ResultsSectionProps {
   status: SearchStatus
   results: SearchResult[]
-  onFiltersChange: (filters: { limit: number; category: string; code: string }) => void
+  onFiltersChange: (filters: { limit: number; category: string; code: string }) => void | Promise<void>
 }
 
 export function ResultsSection({ status, results, onFiltersChange }: ResultsSectionProps) {
   const [limit, setLimit] = useState(100)
   const [category, setCategory] = useState('')
   const [code, setCode] = useState('')
+  const [loadingMore, setLoadingMore] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Assim que a busca termina (achou algo ou não), desce a página
@@ -34,7 +41,16 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
     setLimit(merged.limit)
     setCategory(merged.category)
     setCode(merged.code)
-    onFiltersChange(merged)
+    return onFiltersChange(merged)
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    try {
+      await update({ limit: limit + LOAD_MORE_STEP })
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   // O feedback de carregamento agora é o overlay de scan em cima da
@@ -77,6 +93,14 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
           <ResultCard key={r.item.id} item={r.item} score={r.score} />
         ))}
       </div>
+
+      {results.length >= limit && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
+            {loadingMore ? 'Carregando...' : `Carregar mais ${LOAD_MORE_STEP}`}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

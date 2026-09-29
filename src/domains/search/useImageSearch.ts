@@ -173,7 +173,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
         setResults(found)
         setStatus(found.length === 0 ? 'empty' : 'success')
       } catch {
-        setErrorMessage('Não foi possível processar a imagem. Tente novamente.')
+        setErrorMessage('Sua busca falhou. Clique em "Pesquisar" novamente.')
         setStatus('error')
       }
     },
@@ -210,7 +210,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
       setResults(found)
       setStatus(found.length === 0 ? 'empty' : 'success')
     } catch {
-      setErrorMessage('Não foi possível processar o texto. Tente novamente.')
+      setErrorMessage('Sua busca falhou. Clique em "Buscar" novamente.')
       setStatus('error')
     }
   }, [])
@@ -226,7 +226,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
       setResults(found)
       setStatus(found.length === 0 ? 'empty' : 'success')
     } catch {
-      setErrorMessage('Não foi possível pesquisar. Tente novamente.')
+      setErrorMessage('Sua busca falhou. Tente ajustar o filtro novamente.')
       setStatus('error')
     }
   }, [])

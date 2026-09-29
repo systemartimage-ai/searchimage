@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { startBackgroundKeepAlive, stopBackgroundKeepAlive } from '@/lib/backgroundKeepAlive'
 import { loadTagLabelEmbeddings } from '@/domains/catalog/loadTagLabelEmbeddings'
 import { loadTipoPrototypes } from '@/domains/catalog/loadTipoPrototypes'
 import { scanDirectory, groupByTopLevel } from './scanFolder'
@@ -114,6 +115,9 @@ export function useBulkUpload() {
     setRecentErrors([])
     setProgress({ done: 0, total: entries.length, uploaded: 0, skipped: 0, errors: 0 })
 
+    // Reduz (não elimina) a chance do navegador congelar o processamento se
+    // o usuário trocar de aba durante o upload — ver backgroundKeepAlive.ts.
+    startBackgroundKeepAlive()
     try {
       const [{ sourceId, indexVersionId }, labelEmbeddings, tipoPrototypes, { data: userData }] =
         await Promise.all([
@@ -162,6 +166,8 @@ export function useBulkUpload() {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Falha inesperada no upload.')
       setStatus('done')
+    } finally {
+      stopBackgroundKeepAlive()
     }
   }, [excludedGroups, rootFolderName])
 

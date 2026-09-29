@@ -13,8 +13,32 @@ let queue: Promise<unknown> = Promise.resolve()
 // numa aba em segundo plano, e a Promise ficava esperando uma resposta que
 // nunca chegava, mesmo depois de voltar pra aba. Generoso (uma imagem só
 // nunca deveria demorar isso em uso normal) — existe só pra destravar esse
-// caso, não pra apertar o caso comum.
+// caso, não pra apertar o caso comum. Serve de rede de segurança pro caso
+// abaixo não disparar (ex. `document` indisponível, testes).
 const EMBED_TIMEOUT_MS = 60_000
+
+// Achado real (2ª rodada): 60s é tempo demais pra esperar TODA VEZ que se
+// volta pra aba — o usuário não quer precisar ficar olhando a tela até o
+// timeout estourar. Quando a aba volta a ficar visível e já existe uma
+// chamada pendente há mais que isso, força a recuperação NA HORA em vez de
+// esperar o restante do prazo total. Importante: isso não faz a aba
+// continuar processando em ritmo normal enquanto está em segundo plano —
+// nenhum site consegue forçar isso, é limitação deliberada do navegador
+// (economia de bateria/CPU) — só garante que, ao VOLTAR pra aba, o
+// processamento retoma sozinho, sem precisar reiniciar manualmente.
+const STALE_ON_RETURN_MS = 5_000
+
+let pendingSince: number | null = null
+let forcePendingTimeout: (() => void) | null = null
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return
+    if (pendingSince !== null && Date.now() - pendingSince > STALE_ON_RETURN_MS) {
+      forcePendingTimeout?.()
+    }
+  })
+}
 
 function getWorker(): Worker {
   if (!worker) {
@@ -35,10 +59,14 @@ export function embedInWorker(blob: Blob): Promise<number[]> {
       const w = getWorker()
       const id = crypto.randomUUID()
       let settled = false
+      pendingSince = Date.now()
 
-      const timeoutId = setTimeout(() => {
+      function finish() {
         if (settled) return
         settled = true
+        pendingSince = null
+        forcePendingTimeout = null
+        clearTimeout(timeoutId)
         w.removeEventListener('message', onMessage)
         resetWorker()
         reject(
@@ -46,11 +74,16 @@ export function embedInWorker(blob: Blob): Promise<number[]> {
             'Tempo esgotado esperando o processamento da imagem (a aba pode ter ficado muito tempo em segundo plano)',
           ),
         )
-      }, EMBED_TIMEOUT_MS)
+      }
+
+      const timeoutId = setTimeout(finish, EMBED_TIMEOUT_MS)
+      forcePendingTimeout = finish
 
       function onMessage(event: MessageEvent<WorkerResponse>) {
         if (event.data.id !== id || settled) return
         settled = true
+        pendingSince = null
+        forcePendingTimeout = null
         clearTimeout(timeoutId)
         w.removeEventListener('message', onMessage)
         if (event.data.type === 'result') {

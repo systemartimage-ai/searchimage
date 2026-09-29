@@ -50,6 +50,7 @@ describe('embedInWorker', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.resetModules()
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
   })
 
   it('resolve normalmente quando o Worker responde a tempo', async () => {
@@ -86,5 +87,41 @@ describe('embedInWorker', () => {
     expect(FakeWorker.instances).toHaveLength(2)
     FakeWorker.instances[1].emit({ id: 'fixed-id', type: 'result', embedding: [9] })
     await expect(second).resolves.toEqual([9])
+  })
+
+  // Achado real (2ª rodada, depois que a correção acima já estava no ar):
+  // esperar os 60s inteiros toda vez que volta pra aba era demais — o
+  // usuário não quer ficar olhando a tela até o timeout estourar. Voltar a
+  // ficar visível com uma chamada pendente há mais que alguns segundos
+  // força a recuperação na hora, sem esperar o resto do prazo total.
+  function setVisibility(state: 'visible' | 'hidden') {
+    Object.defineProperty(document, 'visibilityState', { value: state, configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
+
+  it('recupera na hora quando a aba volta a ficar visível com uma chamada travada há mais de 5s', async () => {
+    const { embedInWorker } = await import('./clipWorkerClient')
+    const promise = embedInWorker(new Blob())
+    await vi.advanceTimersByTimeAsync(0)
+
+    setVisibility('hidden')
+    await vi.advanceTimersByTimeAsync(6_000) // fica "presa" há mais de 5s
+
+    const assertion = expect(promise).rejects.toThrow(/tempo esgotado/i)
+    setVisibility('visible') // não precisa esperar até os 60s — recupera na hora
+    await assertion
+  })
+
+  it('não força recuperação se a chamada pendente é recente (< 5s) quando a aba volta a ficar visível', async () => {
+    const { embedInWorker } = await import('./clipWorkerClient')
+    const promise = embedInWorker(new Blob())
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(1_000) // só 1s, ainda dentro do normal
+    setVisibility('visible')
+
+    const w = FakeWorker.instances[0]
+    w.emit({ id: 'fixed-id', type: 'result', embedding: [7] })
+    await expect(promise).resolves.toEqual([7])
   })
 })

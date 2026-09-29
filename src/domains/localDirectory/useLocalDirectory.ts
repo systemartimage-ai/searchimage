@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { CatalogItem } from '@/domains/catalog/types'
+import { startBackgroundKeepAlive, stopBackgroundKeepAlive } from '@/lib/backgroundKeepAlive'
 import { indexLocalDirectory } from './indexLocalDirectory'
 import type { LocalFolder } from './types'
 
@@ -44,6 +45,9 @@ export function useLocalDirectory() {
       setFolders((prev) => [...prev, folder])
       itemsByFolderRef.current.set(id, [])
 
+      // Reduz (não elimina) a chance do navegador congelar o processamento
+      // se o usuário trocar de aba durante a indexação — ver backgroundKeepAlive.ts.
+      startBackgroundKeepAlive()
       try {
         await indexLocalDirectory(dirHandle, id, dirHandle.name, includeSubfolders, {
           onTotal: (total) => updateFolder(id, { total }),
@@ -59,6 +63,8 @@ export function useLocalDirectory() {
           status: 'error',
           errorMessage: 'Não foi possível indexar as imagens dessa pasta.',
         })
+      } finally {
+        stopBackgroundKeepAlive()
       }
     },
     [updateFolder, rebuildItems],

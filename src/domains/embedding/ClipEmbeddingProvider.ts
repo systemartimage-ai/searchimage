@@ -101,14 +101,27 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
 
   private getExtractor(): Promise<ImageFeatureExtractionPipeline> {
     if (!this.extractorPromise) {
-      this.extractorPromise = pipeline('image-feature-extraction', CLIP_MODEL_ID, { dtype: 'fp32' })
+      // Achado real: se `pipeline()` falhar uma vez (ex. rede instável
+      // baixando o modelo), guardar a Promise REJEITADA em cache fazia
+      // toda busca seguinte falhar na hora, pra sempre, sem tentar
+      // carregar de novo — só um F5 resolvia. Limpa o cache no erro pra
+      // a próxima chamada tentar do zero.
+      this.extractorPromise = pipeline('image-feature-extraction', CLIP_MODEL_ID, { dtype: 'fp32' }).catch(
+        (err: unknown) => {
+          this.extractorPromise = null
+          throw err
+        },
+      )
     }
     return this.extractorPromise
   }
 
   private getDetector(): Promise<ZeroShotObjectDetectionPipeline> {
     if (!this.detectorPromise) {
-      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID)
+      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID).catch((err: unknown) => {
+        this.detectorPromise = null
+        throw err
+      })
     }
     return this.detectorPromise
   }

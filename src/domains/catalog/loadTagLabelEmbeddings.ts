@@ -9,9 +9,15 @@ let tagLabelEmbeddingsPromise: Promise<TagLabelEmbeddings> | null = null
 
 export function loadTagLabelEmbeddings(): Promise<TagLabelEmbeddings> {
   if (!tagLabelEmbeddingsPromise) {
-    tagLabelEmbeddingsPromise = import('./tagLabelEmbeddings.json').then(
-      (mod) => mod.default as TagLabelEmbeddings,
-    )
+    // Achado real (mesmo padrão de ClipEmbeddingProvider.ts): cache de
+    // Promise REJEITADA travaria a busca pra sempre depois de uma falha
+    // pontual de carregamento do chunk — limpa o cache no erro.
+    tagLabelEmbeddingsPromise = import('./tagLabelEmbeddings.json')
+      .then((mod) => mod.default as TagLabelEmbeddings)
+      .catch((err: unknown) => {
+        tagLabelEmbeddingsPromise = null
+        throw err
+      })
   }
   return tagLabelEmbeddingsPromise
 }

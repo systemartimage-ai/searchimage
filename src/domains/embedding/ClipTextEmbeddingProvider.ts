@@ -119,16 +119,30 @@ export class ClipTextEmbeddingProvider {
   private tokenizerPromise: Promise<PreTrainedTokenizer> | null = null
   private textModelPromise: Promise<CLIPTextModelWithProjection> | null = null
 
+  // Achado real: se o carregamento de um modelo falhar uma vez (ex. rede
+  // instável), guardar a Promise REJEITADA em cache fazia toda busca por
+  // texto seguinte falhar na hora, pra sempre, sem tentar carregar de
+  // novo — só um F5 resolvia (usuário via a mensagem de erro, clicava em
+  // "Buscar" de novo, e nada acontecia). Limpa o cache no erro pra a
+  // próxima chamada tentar do zero.
   private getTranslator(): Promise<TranslationPipeline> {
     if (!this.translatorPromise) {
-      this.translatorPromise = pipeline('translation', TRANSLATOR_MODEL_ID, { dtype: 'fp32' })
+      this.translatorPromise = pipeline('translation', TRANSLATOR_MODEL_ID, { dtype: 'fp32' }).catch(
+        (err: unknown) => {
+          this.translatorPromise = null
+          throw err
+        },
+      )
     }
     return this.translatorPromise
   }
 
   private getTokenizer(): Promise<PreTrainedTokenizer> {
     if (!this.tokenizerPromise) {
-      this.tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID)
+      this.tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID).catch((err: unknown) => {
+        this.tokenizerPromise = null
+        throw err
+      })
     }
     return this.tokenizerPromise
   }
@@ -137,6 +151,9 @@ export class ClipTextEmbeddingProvider {
     if (!this.textModelPromise) {
       this.textModelPromise = CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL_ID, {
         dtype: 'fp32',
+      }).catch((err: unknown) => {
+        this.textModelPromise = null
+        throw err
       })
     }
     return this.textModelPromise

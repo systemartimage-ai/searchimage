@@ -6,7 +6,15 @@ let tipoPrototypesPromise: Promise<TipoPrototypes> | null = null
 
 export function loadTipoPrototypes(): Promise<TipoPrototypes> {
   if (!tipoPrototypesPromise) {
-    tipoPrototypesPromise = import('./tipoPrototypes.json').then((mod) => mod.default as TipoPrototypes)
+    // Achado real (mesmo padrão de ClipEmbeddingProvider.ts): cache de
+    // Promise REJEITADA travaria a busca pra sempre depois de uma falha
+    // pontual de carregamento do chunk — limpa o cache no erro.
+    tipoPrototypesPromise = import('./tipoPrototypes.json')
+      .then((mod) => mod.default as TipoPrototypes)
+      .catch((err: unknown) => {
+        tipoPrototypesPromise = null
+        throw err
+      })
   }
   return tipoPrototypesPromise
 }

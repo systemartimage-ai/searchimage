@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import { computeCropBox } from './ClipEmbeddingProvider'
+import { describe, expect, it, vi } from 'vitest'
+import { pipeline } from '@huggingface/transformers'
+import { computeCropBox, ClipEmbeddingProvider } from './ClipEmbeddingProvider'
+
+vi.mock('@huggingface/transformers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@huggingface/transformers')>()
+  return { ...actual, pipeline: vi.fn() }
+})
 
 // Achado real: a maioria das fotos do catálogo é ambientada (sofá, parede,
 // piso), e o CLIP embeda a cena inteira — computeCropBox isola a lógica
@@ -46,5 +52,44 @@ describe('computeCropBox', () => {
     const detections = [{ score: 0.9, box: { xmin: 0, ymin: 0, xmax: 800, ymax: 600 } }]
     const box = computeCropBox(detections, 800, 600)
     expect(box).toEqual([0, 0, 800, 600])
+  })
+})
+
+// Achado real: se o carregamento do modelo (pipeline()) falhar uma vez
+// (ex. rede instável), a Promise REJEITADA ficava em cache pra sempre —
+// toda busca seguinte falhava na hora, sem tentar carregar de novo, e só
+// um F5 resolvia. Acessa os métodos privados de carregamento direto (sem
+// mockar RawImage/decodificação de imagem inteira) só pra validar
+// isoladamente que o cache se recupera depois de um erro.
+describe('cache de carregamento do modelo se recupera depois de uma falha', () => {
+  function privateLoaders(provider: ClipEmbeddingProvider) {
+    return provider as unknown as {
+      getExtractor: () => Promise<unknown>
+      getDetector: () => Promise<unknown>
+    }
+  }
+
+  it('getExtractor tenta carregar de novo depois de uma falha, não repete a mesma rejeição pra sempre', async () => {
+    const mockPipeline = vi.mocked(pipeline)
+    mockPipeline.mockRejectedValueOnce(new Error('falha de rede')).mockResolvedValueOnce({ ok: true } as never)
+
+    const provider = new ClipEmbeddingProvider()
+    const loaders = privateLoaders(provider)
+
+    await expect(loaders.getExtractor()).rejects.toThrow('falha de rede')
+    await expect(loaders.getExtractor()).resolves.toEqual({ ok: true })
+    expect(mockPipeline).toHaveBeenCalledTimes(2)
+  })
+
+  it('getDetector tenta carregar de novo depois de uma falha', async () => {
+    const mockPipeline = vi.mocked(pipeline)
+    mockPipeline.mockRejectedValueOnce(new Error('falha de rede')).mockResolvedValueOnce({ ok: true } as never)
+
+    const provider = new ClipEmbeddingProvider()
+    const loaders = privateLoaders(provider)
+
+    await expect(loaders.getDetector()).rejects.toThrow('falha de rede')
+    await expect(loaders.getDetector()).resolves.toEqual({ ok: true })
+    expect(mockPipeline).toHaveBeenCalledTimes(2)
   })
 })

@@ -41,6 +41,16 @@ export interface SearchOptions {
 
 const MAX_ATTEMPTS = 3
 
+function isQueryTimeout(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '57014'
+}
+
+function searchErrorMessage(error: unknown, fallback: string): string {
+  return isQueryTimeout(error)
+    ? 'O catálogo demorou demais para responder. Tente novamente em instantes.'
+    : fallback
+}
+
 /**
  * Roda `fn` e, se falhar, tenta de novo (até `MAX_ATTEMPTS` vezes no
  * total) antes de desistir — a maioria dos erros aqui (download do
@@ -56,7 +66,12 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
     try {
       return await fn()
     } catch (err) {
-      const isLast = attempt === MAX_ATTEMPTS
+      // Repetir imediatamente um timeout de SQL ou operador incompatível
+      // só prolonga a espera; uma nova tentativa manual continua disponível.
+      const isLast =
+        attempt === MAX_ATTEMPTS ||
+        isQueryTimeout(err) ||
+        (err instanceof Error && err.message.includes('Could not find an implementation for'))
       console.error(
         `[${label}] tentativa ${attempt}/${MAX_ATTEMPTS} falhou${isLast ? ', desistindo' : ', tentando de novo'}:`,
         err,
@@ -94,6 +109,11 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
   const previewUrlRef = useRef<string | null>(null)
   const embeddingRef = useRef<number[] | null>(null)
   const tagKeywordsRef = useRef<string[]>([])
+  const preparedQueryRef = useRef<{
+    key: File | string
+    embedding: number[]
+    tagKeywords: string[]
+  } | null>(null)
   const localItemsRef = useRef<CatalogItem[]>(localItems)
   useEffect(() => {
     localItemsRef.current = localItems
@@ -103,6 +123,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
     previewUrlRef.current = null
     embeddingRef.current = null
+    preparedQueryRef.current = null
     setFile(null)
     setPreviewUrl(null)
     setResults([])
@@ -127,6 +148,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     const url = URL.createObjectURL(candidate)
     previewUrlRef.current = url
     embeddingRef.current = null
+    preparedQueryRef.current = null
 
     setFile(candidate)
     setPreviewUrl(url)
@@ -144,36 +166,44 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
       setStatus('embedding')
 
       try {
-        const { found, embedding, tagKeywords } = await withRetry(async () => {
-          setStatus('embedding')
-          const embedding = await provider.embedImage(file)
-          // Classifica a própria foto de busca com as mesmas tags do
-          // catálogo (ver IMAGE_TAG_CATEGORIES) — sinal exato, robusto a
-          // itens "ambientados" (pendurados numa sala) cuja similaridade
-          // visual pura fica diluída pelo cenário.
-          const [labelEmbeddings, tipoPrototypes] = await Promise.all([
-            loadTagLabelEmbeddings(),
-            loadTipoPrototypes(),
-          ])
-          const tagKeywords = classifyTags(
-            embedding,
-            TAG_CATEGORIES,
-            labelEmbeddings,
-            IMAGE_TAG_CATEGORIES,
-          )
-          const tipo = classifyTipoByPrototype(embedding, tipoPrototypes)
-          if (tipo) tagKeywords.push(tipo)
-          setStatus('searching')
-          const found = await searchAllSources(embedding, options, localItemsRef.current, tagKeywords)
-          return { found, embedding, tagKeywords }
-        }, 'busca por imagem')
+        if (preparedQueryRef.current?.key !== file) {
+          embeddingRef.current = null
+          preparedQueryRef.current = await withRetry(async () => {
+            const embedding = await provider.embedImage(file)
+            // Classifica a própria foto de busca com as mesmas tags do
+            // catálogo (ver IMAGE_TAG_CATEGORIES) — sinal exato, robusto a
+            // itens "ambientados" (pendurados numa sala) cuja similaridade
+            // visual pura fica diluída pelo cenário.
+            const [labelEmbeddings, tipoPrototypes] = await Promise.all([
+              loadTagLabelEmbeddings(),
+              loadTipoPrototypes(),
+            ])
+            const tagKeywords = classifyTags(
+              embedding,
+              TAG_CATEGORIES,
+              labelEmbeddings,
+              IMAGE_TAG_CATEGORIES,
+            )
+            const tipo = classifyTipoByPrototype(embedding, tipoPrototypes)
+            if (tipo) tagKeywords.push(tipo)
+            return { key: file, embedding, tagKeywords }
+          }, 'processar imagem')
+        }
+        const { embedding, tagKeywords } = preparedQueryRef.current
+        setStatus('searching')
+        const found = await withRetry(
+          () => searchAllSources(embedding, options, localItemsRef.current, tagKeywords),
+          'consultar catálogo por imagem',
+        )
 
         embeddingRef.current = embedding
         tagKeywordsRef.current = tagKeywords
         setResults(found)
         setStatus(found.length === 0 ? 'empty' : 'success')
-      } catch {
-        setErrorMessage('Sua busca falhou. Clique em "Pesquisar" novamente.')
+      } catch (error) {
+        setErrorMessage(
+          searchErrorMessage(error, 'Sua busca falhou. Clique em "Pesquisar" novamente.'),
+        )
         setStatus('error')
       }
     },
@@ -192,25 +222,32 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     setStatus('embedding')
 
     try {
-      const { found, embedding, tagKeywords } = await withRetry(async () => {
-        setStatus('embedding')
-        const embedding = await textProvider.embedText(text)
-        // Palavras-chave que batem com tags conhecidas (ex. "leão" ->
-        // `leao`) — busca prioriza esse sinal exato antes do semântico
-        // puro (ver searchCatalog.ts). Robusto a como cada usuário
-        // escreve, não depende de frase descritiva.
-        const tagKeywords = extractTagKeywords(text)
-        setStatus('searching')
-        const found = await searchAllSources(embedding, options, localItemsRef.current, tagKeywords)
-        return { found, embedding, tagKeywords }
-      }, 'busca por texto')
+      const query = text.trim()
+      if (preparedQueryRef.current?.key !== query) {
+        embeddingRef.current = null
+        preparedQueryRef.current = await withRetry(async () => {
+          const embedding = await textProvider.embedText(query)
+          // Palavras-chave que batem com tags conhecidas (ex. "leão" ->
+          // `leao`) — busca prioriza esse sinal exato antes do semântico
+          // puro (ver searchCatalog.ts). Robusto a como cada usuário
+          // escreve, não depende de frase descritiva.
+          const tagKeywords = extractTagKeywords(query)
+          return { key: query, embedding, tagKeywords }
+        }, 'processar texto')
+      }
+      const { embedding, tagKeywords } = preparedQueryRef.current
+      setStatus('searching')
+      const found = await withRetry(
+        () => searchAllSources(embedding, options, localItemsRef.current, tagKeywords),
+        'consultar catálogo por texto',
+      )
 
       embeddingRef.current = embedding
       tagKeywordsRef.current = tagKeywords
       setResults(found)
       setStatus(found.length === 0 ? 'empty' : 'success')
-    } catch {
-      setErrorMessage('Sua busca falhou. Clique em "Buscar" novamente.')
+    } catch (error) {
+      setErrorMessage(searchErrorMessage(error, 'Sua busca falhou. Clique em "Buscar" novamente.'))
       setStatus('error')
     }
   }, [])
@@ -218,15 +255,24 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
   /** Reaplica filtros (limite/categoria/código) sem regerar o embedding. */
   const applyFilters = useCallback(async (options: SearchOptions) => {
     if (!embeddingRef.current) return
+    setErrorMessage(null)
     try {
       const found = await withRetry(
-        () => searchAllSources(embeddingRef.current!, options, localItemsRef.current, tagKeywordsRef.current),
+        () =>
+          searchAllSources(
+            embeddingRef.current!,
+            options,
+            localItemsRef.current,
+            tagKeywordsRef.current,
+          ),
         'reaplicar filtros',
       )
       setResults(found)
       setStatus(found.length === 0 ? 'empty' : 'success')
-    } catch {
-      setErrorMessage('Sua busca falhou. Tente ajustar o filtro novamente.')
+    } catch (error) {
+      setErrorMessage(
+        searchErrorMessage(error, 'Sua busca falhou. Tente ajustar o filtro novamente.'),
+      )
       setStatus('error')
     }
   }, [])

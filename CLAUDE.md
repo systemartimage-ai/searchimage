@@ -46,3 +46,38 @@ Corretude \> segurança \> simplicidade \> UX \> otimização prematura.
 Se uma integração depende do site-fonte real, não invente seletor, API
 ou autenticação. Crie a interface/adaptador e solicite o dado necessário
 na etapa adequada.
+
+## Estado em 2026-09-30
+
+Timeout `57014` na busca resolvido conforme confirmação do usuário.
+A migration `20260930030000_optimize_search_rls.sql` foi testada
+localmente e aplicada pelo usuário no Supabase; após o reteste, ele
+confirmou que a busca voltou a funcionar. Ver diagnóstico e limites
+da validação na entrada de 2026-09-30 em `DIRETRIZES.md`.
+
+Indicador verde "Produto ativo no site" implementado nos resultados,
+com confirmação do estado e da origem no banco (última indexação).
+Upload Admin e diretório local não recebem o indicador. Validado
+localmente; publicação do front-end ainda pendente.
+
+## Estado em 2026-10-01
+
+Erro de texto `/class_head/Cast` reproduzido após falha do detector
+OWL-ViT: as filas globais do Transformers.js 4.3.0 mantinham a Promise
+rejeitada e contaminavam os modelos seguintes. Correção reproduzível
+em `scripts/patchTransformersRuntime.mjs`, aplicada nos hooks npm;
+dependência fixada em 4.3.0. Não remover o patch ou atualizar a versão
+sem retestar recuperação e serialização. Texto após falha do detector
+validado em navegador real; ainda requer publicação na Vercel.
+
+Busca também passou a reaproveitar a última imagem/texto processado
+nas novas tentativas e a evitar repetição automática de timeout SQL.
+Detector com operador incompatível usa fallback nas próximas imagens
+sem recarregar. Validação: 101 testes; deploy ainda pendente.
+
+Atualização: front-end publicado em produção em 2026-10-01:
+https://artimage-search.vercel.app. Deploy Vercel
+`dpl_AnfTALDrpgqz89pj3BxUjZzXQ3eB` concluído com status READY.
+HTTP 200 e bundle `index-J7JQ2t7V.js` confirmados no endereço de
+produção, incluindo a nova mensagem de timeout. Fluxo autenticado
+não retestado após este deploy; banco remoto não alterado nesta publicação.

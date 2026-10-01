@@ -13,8 +13,35 @@ interface MatchCatalogItemsRow {
   score: number
 }
 
-function toResults(data: MatchCatalogItemsRow[] | null): SearchResult[] {
-  return (data ?? []).map((row) => {
+async function toResults(data: MatchCatalogItemsRow[] | null): Promise<SearchResult[]> {
+  const activeOnSiteIds = new Set<string>()
+  // A RPC não retorna o estado do item. Consultamos apenas os IDs já
+  // encontrados, em lotes pequenos, sem alterar a busca vetorial ou sua RPC.
+  // ADMIN pode ver itens inativos/arquivados via RLS: a origem sozinha
+  // não é suficiente para afirmar que um produto está ativo no site.
+  const rows = data ?? []
+  for (let start = 0; start < rows.length; start += 100) {
+    try {
+      const { data: activeItems, error } = await supabase
+        .from('catalog_items')
+        .select('id,sources!inner(),index_versions!inner()')
+        .in('id', rows.slice(start, start + 100).map((row) => row.id))
+        .eq('active', true)
+        .eq('sources.type', 'web-catalog')
+        .eq('sources.base_url', 'https://artimage.com.br')
+        .eq('sources.enabled', true)
+        .eq('index_versions.status', 'ACTIVE')
+        .abortSignal(AbortSignal.timeout(5000))
+      if (error) throw error
+      for (const item of activeItems ?? []) activeOnSiteIds.add(item.id)
+    } catch (error) {
+      // A marcação é complementar: uma falha não deve impedir os resultados
+      // nem atribuir status de ativo a um produto sem confirmação.
+      console.warn('Não foi possível confirmar os produtos ativos no site:', error)
+      break
+    }
+  }
+  return rows.map((row) => {
     const item: CatalogItem = {
       id: row.id,
       title: row.title ?? '',
@@ -22,6 +49,7 @@ function toResults(data: MatchCatalogItemsRow[] | null): SearchResult[] {
       category: row.category ?? '',
       source: row.source ?? '',
       thumbnailUrl: row.thumbnail_url ?? '',
+      activeOnSite: activeOnSiteIds.has(row.id),
       // Embedding não vem do servidor (não precisa no cliente — a
       // similaridade já foi calculada no Postgres).
       embedding: [],

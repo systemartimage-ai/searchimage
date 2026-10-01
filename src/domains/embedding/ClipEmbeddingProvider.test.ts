@@ -71,7 +71,9 @@ describe('cache de carregamento do modelo se recupera depois de uma falha', () =
 
   it('getExtractor tenta carregar de novo depois de uma falha, não repete a mesma rejeição pra sempre', async () => {
     const mockPipeline = vi.mocked(pipeline)
-    mockPipeline.mockRejectedValueOnce(new Error('falha de rede')).mockResolvedValueOnce({ ok: true } as never)
+    mockPipeline
+      .mockRejectedValueOnce(new Error('falha de rede'))
+      .mockResolvedValueOnce({ ok: true } as never)
 
     const provider = new ClipEmbeddingProvider()
     const loaders = privateLoaders(provider)
@@ -83,7 +85,9 @@ describe('cache de carregamento do modelo se recupera depois de uma falha', () =
 
   it('getDetector tenta carregar de novo depois de uma falha', async () => {
     const mockPipeline = vi.mocked(pipeline)
-    mockPipeline.mockRejectedValueOnce(new Error('falha de rede')).mockResolvedValueOnce({ ok: true } as never)
+    mockPipeline
+      .mockRejectedValueOnce(new Error('falha de rede'))
+      .mockResolvedValueOnce({ ok: true } as never)
 
     const provider = new ClipEmbeddingProvider()
     const loaders = privateLoaders(provider)
@@ -91,5 +95,26 @@ describe('cache de carregamento do modelo se recupera depois de uma falha', () =
     await expect(loaders.getDetector()).rejects.toThrow('falha de rede')
     await expect(loaders.getDetector()).resolves.toEqual({ ok: true })
     expect(mockPipeline).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('detector incompatível', () => {
+  it('usa a imagem inteira sem carregar de novo um operador incompatível a cada imagem', async () => {
+    vi.mocked(pipeline)
+      .mockReset()
+      .mockRejectedValue(
+        new Error("Could not find an implementation for Cast(13) node '/class_head/Cast'"),
+      )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const provider = new ClipEmbeddingProvider() as unknown as {
+      cropToArtwork: (raw: object) => Promise<object>
+    }
+    const first = { width: 224, height: 224 }
+    const second = { width: 300, height: 300 }
+    await expect(provider.cropToArtwork(first)).resolves.toBe(first)
+    await expect(provider.cropToArtwork(second)).resolves.toBe(second)
+    expect(pipeline).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
   })
 })

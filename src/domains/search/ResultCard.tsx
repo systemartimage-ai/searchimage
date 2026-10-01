@@ -42,8 +42,17 @@ export function ResultCard({ item, score }: SearchResult) {
           />
         </button>
         <CardContent className="flex flex-col gap-1.5 pt-4">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-foreground">{item.title}</h3>
+          {item.activeOnSite && (
+            <p
+              className="flex items-center gap-1.5 text-xs font-medium text-emerald-700"
+              title="Ativo no catálogo do site Artimage, conforme a última indexação."
+            >
+              <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-600" />
+              <span>Produto ativo no site</span>
+            </p>
+          )}
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h3 className="min-w-0 break-words font-medium text-foreground">{item.title}</h3>
             <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
               {similarityLabel(score)}
             </span>

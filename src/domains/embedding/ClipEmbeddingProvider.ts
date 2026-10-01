@@ -98,6 +98,7 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
 
   private extractorPromise: Promise<ImageFeatureExtractionPipeline> | null = null
   private detectorPromise: Promise<ZeroShotObjectDetectionPipeline> | null = null
+  private detectorUnsupported = false
 
   private getExtractor(): Promise<ImageFeatureExtractionPipeline> {
     if (!this.extractorPromise) {
@@ -106,22 +107,24 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
       // toda busca seguinte falhar na hora, pra sempre, sem tentar
       // carregar de novo — só um F5 resolvia. Limpa o cache no erro pra
       // a próxima chamada tentar do zero.
-      this.extractorPromise = pipeline('image-feature-extraction', CLIP_MODEL_ID, { dtype: 'fp32' }).catch(
-        (err: unknown) => {
-          this.extractorPromise = null
-          throw err
-        },
-      )
+      this.extractorPromise = pipeline('image-feature-extraction', CLIP_MODEL_ID, {
+        dtype: 'fp32',
+      }).catch((err: unknown) => {
+        this.extractorPromise = null
+        throw err
+      })
     }
     return this.extractorPromise
   }
 
   private getDetector(): Promise<ZeroShotObjectDetectionPipeline> {
     if (!this.detectorPromise) {
-      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID).catch((err: unknown) => {
-        this.detectorPromise = null
-        throw err
-      })
+      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID).catch(
+        (err: unknown) => {
+          this.detectorPromise = null
+          throw err
+        },
+      )
     }
     return this.detectorPromise
   }
@@ -136,6 +139,7 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
    * no fallback: usa a imagem inteira, nunca quebra a busca.
    */
   private async cropToArtwork(raw: RawImage): Promise<RawImage> {
+    if (this.detectorUnsupported) return raw
     try {
       const detector = await this.getDetector()
       const detections = (await detector(raw, DETECTION_LABELS, {
@@ -145,7 +149,19 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
       const box = computeCropBox(detections, raw.width, raw.height)
       if (!box) return raw
       return await raw.crop(box)
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('Could not find an implementation for')
+      ) {
+        // Incompatibilidade de operador não muda entre imagens na mesma
+        // sessão. Não recarregar/recompilar o detector a cada pesquisa.
+        this.detectorUnsupported = true
+        console.warn(
+          'Recorte automático indisponível neste navegador; usando a imagem inteira.',
+          error,
+        )
+      }
       return raw
     }
   }

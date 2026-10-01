@@ -70,7 +70,7 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
           onCodeChange={(v) => update({ code: v })}
         />
         <p className="w-full py-12 text-center text-sm text-muted-foreground">
-          Nenhum resultado encontrado com os filtros atuais. Tente ajustar a categoria ou o código.
+          Nenhum resultado encontrado com os filtros atuais. Tente ajustar a categoria, o código ou o nome.
         </p>
       </div>
     )

@@ -14,7 +14,7 @@ import { HomePage } from './HomePage'
 // A busca real agora passa por supabase.rpc('match_catalog_items', ...)
 // (ver searchCatalog.ts) — mockamos com uma amostra fixa (mesma forma
 // dos dados reais: title/code/category/source/thumbnail_url/score) e
-// aplicamos os filtros de categoria/código/limite manualmente, só o
+// aplicamos os filtros de categoria/código/nome/limite manualmente, só o
 // suficiente pros testes de UI abaixo não dependerem de rede.
 const FAKE_ROWS = [
   { id: '1', title: 'EM BUSCA DA PAZ', code: 'ta050a-pend-comp', category: 'Quadros', source: 'Artimage', thumbnail_url: 'a.jpg', score: 1 },
@@ -32,7 +32,7 @@ function chainable(): Record<string, unknown> {
   const node: Record<string, unknown> = {
     then: (resolve: (v: { data: null; count: number }) => void) => resolve({ data: null, count: FAKE_ROWS.length }),
   }
-  for (const method of ['select', 'eq', 'order', 'limit']) node[method] = () => chainable()
+  for (const method of ['select', 'eq', 'order', 'limit', 'in', 'abortSignal']) node[method] = () => chainable()
   node.maybeSingle = async () => ({ data: null })
   return node
 }
@@ -45,7 +45,9 @@ vi.mock('@/lib/supabase', () => ({
       const filtered = FAKE_ROWS.filter(
         (r) =>
           (!args.match_category || r.category === args.match_category) &&
-          (!args.match_code || r.code.toLowerCase().includes(args.match_code.toLowerCase())),
+          (!args.match_code ||
+            r.code.toLowerCase().includes(args.match_code.toLowerCase()) ||
+            r.title.toLowerCase().includes(args.match_code.toLowerCase())),
       ).slice(0, args.match_limit)
       return { data: filtered, error: null }
     },

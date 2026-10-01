@@ -59,13 +59,13 @@ export function ResultsToolbar({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="filter-code">Código</Label>
+        <Label htmlFor="filter-code">Código ou nome</Label>
         <Input
           id="filter-code"
-          placeholder="ex.: jn005a"
+          placeholder="ex.: jn005a ou Artsy"
           value={code}
           onChange={(e) => onCodeChange(e.target.value)}
-          className="h-9 w-40"
+          className="h-9 w-52"
         />
       </div>
 

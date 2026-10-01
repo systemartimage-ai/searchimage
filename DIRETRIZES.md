@@ -1484,6 +1484,154 @@ de geração existe mas só rodou parcialmente.
 
 ---
 
+## 2026-09-30 — Timeout na busca: otimização de RLS aplicada e funcionamento confirmado
+
+**Incidente confirmado:** tanto imagem quanto texto chegam à RPC
+`match_catalog_items_hybrid`, mas o navegador recebe HTTP 500 com código
+Postgres `57014`, `canceling statement due to statement timeout`.
+As três tentativas do front-end repetem a mesma consulta. Não é uma
+falha de carregamento da imagem nesse caso.
+
+**Diagnóstico:** a API respondeu e uma busca com service-role retornou
+resultados. Esse teste não valida o caminho autenticado: service-role
+ignora RLS e usa outro contexto de execução. O catálogo tinha contagem
+estimada de 49.493 itens e duas versões ACTIVE. As policies existentes
+chamavam `is_admin()` diretamente por linha, inclusive nas tabelas
+relacionadas e nas policies FOR ALL que também participam do SELECT.
+Isso é um gargalo identificado no código; o plano e o tempo da consulta
+autenticada de produção ainda precisam de confirmação.
+
+**Mudança aplicada:**
+`supabase/migrations/20260930030000_optimize_search_rls.sql` usa SELECT
+escalar para reutilizar a verificação de identidade/permissão por
+statement e conjuntos de fontes/versões elegíveis sem correlação por
+item. Mantém as permissões existentes, RLS e a RPC SECURITY INVOKER.
+Não altera itens, embeddings, índices vetoriais ou limites de tempo.
+Referência: [orientação oficial de performance de RLS](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv).
+
+**Validação:** `supabase/tests/search_rls.sql` passou antes e depois da
+migration em PostgreSQL local (PGlite com pgvector), com contextos
+anon/USER/ADMIN: visibilidade, pesquisa com e sem tags, exclusão de tipo,
+bloqueio de escrita e autopromoção do USER, escrita do ADMIN.
+EXPLAIN confirmou InitPlan. Em uma contagem local de 10 mil itens,
+o tempo passou de aproximadamente 93 ms para 18 ms; isso não é uma
+medição da RPC em produção. Os 92 testes da aplicação passaram durante
+o diagnóstico, antes desta mudança apenas SQL/documental. Processamento
+real de texto em português e imagem também passou no navegador de teste.
+
+**Resultado em produção:** o usuário informou que aplicou a migration
+no SQL Editor do projeto `muwtcghkfltxrefvylba` e, após a orientação de
+retestar imagem e texto, confirmou: "boa gora foi". Incidente resolvido
+conforme esse reteste do usuário; não houve medição autenticada de
+latência em produção pelo agente. Não foi necessário deploy do front-end.
+Se o timeout voltar, capturar EXPLAIN ANALYZE com contexto authenticated
+e investigar plano/IO antes de mudar timeout ou refazer índices.
+
+## 2026-09-30 — Indicador de produto ativo no site
+
+**Solicitação:** destacar nos resultados os produtos ativos importados
+do site, com uma bolinha verde e o texto "Produto ativo no site".
+
+**Implementação:** `CatalogItem.activeOnSite` alimenta o indicador em
+`ResultCard`. Após a busca, `searchCatalog` consulta apenas os IDs dos
+resultados, em lotes de até 100, e confirma item ativo, fonte habilitada
+do tipo `web-catalog` com URL `https://artimage.com.br` e versão ACTIVE.
+Isso também evita marcar itens inativos/arquivados que um ADMIN pode
+ver. Upload Admin e diretório local não recebem essa marcação. A
+indicação reflete a última indexação, conforme tooltip do cartão; não
+há consulta ao site em tempo real. Se a consulta complementar falhar
+ou ultrapassar 5 segundos, a busca continua sem marcar itens não
+confirmados. Não houve alteração da RPC ou nova migration.
+
+**Validação:** leitura real da API confirmou Artimage marcado e Upload
+Admin sem marcação. Os 92 testes existentes, lint, typecheck e build
+passaram. Verificação visual em desktop e mobile confirmou texto,
+bolinha verde, ausência de marcação nos demais cenários e funcionamento
+da ampliação da imagem. Ajustada a quebra de linha de título e rótulo
+de similaridade para evitar cortes nos cartões estreitos.
+
+**Publicação:** alteração disponível no código local; ainda requer
+deploy do front-end para aparecer na Vercel.
+
+## 2026-10-01 — Busca por texto contaminada por erro do detector ONNX
+
+**Incidente:** a busca por texto repetia nas três tentativas o erro
+`Can't create a session`, código 9, operador `Cast(13)` no nó
+`/class_head/Cast`. Esse nó pertence ao detector OWL-ViT usado pelo
+recorte de imagens; não ao modelo CLIP de texto.
+
+**Causa reproduzida:** Transformers.js 4.3.0 encadeia carregamentos em
+`webInitChain.then(load)` e inferências em `webInferenceChain.then(run)`.
+Uma rejeição fica guardada e impede a execução das próximas tarefas.
+O fallback de `cropToArtwork` captura o erro do detector, mas não consegue
+recuperar a fila interna da dependência. Limpar somente as Promises dos
+providers da aplicação também não resolve essa fila compartilhada.
+
+**Correção:** `scripts/patchTransformersRuntime.mjs` aplica `.then(load,
+load)` e `.then(run, run)` ao bundle web e ao source correspondente,
+permitindo a próxima tarefa após falha sem engolir o erro da tarefa
+atual. A serialização é preservada. Script idempotente, com validação
+da versão e dos trechos antes de escrever; dependência fixada em 4.3.0.
+Os hooks `postinstall`, `predev`, `prebuild` e `pretest` garantem aplicação
+em instalação, desenvolvimento, build/deploy e testes. Nenhuma nova
+dependência, modelo ou alteração do espaço dos embeddings.
+
+**Validação:** sequência real em Edge headless, primeiro detector e
+depois texto. Antes: detector e texto falhavam com o mesmo `/class_head/Cast`.
+Depois: detector ainda falha nesse runtime, mas "quadro azul" é traduzido
+e produz vetor de 512 dimensões. Quatro testes em
+`scripts/transformersRuntime.test.mjs` cobrem recuperação de carregamento,
+serialização após falha, recuperação de inferência e patch no bundle web.
+Suite completa: 96 testes passando; lint, typecheck e build aprovados.
+
+**Limites e publicação:** o operador do detector continua incompatível
+nesse runtime; permanece o fallback já existente para a imagem inteira.
+A correção impede que essa falha opcional derrube a busca por texto ou
+outros modelos. Não exige SQL, reindexação ou exclusão de cache/modelos.
+Requer deploy do front-end e atualização da aba aberta para carregar o
+novo código. Ainda não publicado nesta sessão. Remover o patch somente
+quando uma atualização upstream corrigir as filas e os testes passarem
+sem ele.
+
+## 2026-10-01 — Redução de trabalho repetido e tentativas após timeout
+
+**Relato:** busca lenta e falhando repetidamente. A consulta ao HTML
+público da Vercel ainda retornava `index-CDqFTT4D.js`, versão anterior
+às correções desta sessão; isso impede atribuir ao deploy os ganhos
+observados localmente.
+
+**Mudanças:** `useImageSearch` separa processamento da consulta e acesso
+ao banco. Guarda apenas a última imagem/texto processado na sessão e
+reaproveita seu vetor/tags nas tentativas de rede e ao pesquisar de novo
+a mesma entrada. Mudar a entrada ou limpar a busca invalida esse cache.
+Timeout SQL `57014` e operador ONNX incompatível não são repetidos
+automaticamente três vezes; falhas transitórias continuam com retry.
+O timeout agora tem mensagem específica de demora do catálogo.
+
+`ClipEmbeddingProvider` desativa o recorte apenas durante a vida daquela
+instância quando o runtime informa operador sem implementação. As
+próximas imagens usam diretamente o fallback existente, sem recarregar
+o mesmo detector incompatível. Erros transitórios não o desativam.
+
+**Validação:** cinco regressões adicionais cobrem processamento único
+após falha de rede, tentativa manual após timeout, invalidação da
+consulta, retry de download e detector incompatível carregado uma única
+vez. Os 101 testes passaram com `--maxWorkers=2`. A execução inicial de
+testes/typecheck em paralelo ao navegador de IA esgotou a memória da
+máquina; typecheck passou ao ser repetido separadamente. Não interpretar
+essa falha do ambiente de validação como resultado de testes da aplicação.
+Lint e build também passaram. Medição isolada em Edge headless, usando
+uma imagem sintética e "quadro azul": processamento inicial de imagem
+33.554 ms e repetição 493 ms; texto inicial 35.288 ms e repetição 108 ms.
+Vetores finitos de 512 dimensões nas quatro operações. Tempos incluem
+carregamento inicial dos modelos, mas não consulta ao banco nem render;
+não representam um SLA de produção ou comparação controlada antes/depois.
+
+**Limites:** a primeira busca ainda depende de baixar/carregar modelos
+grandes no navegador. Nenhuma alteração de precisão dos embeddings,
+índice, permissões ou timeout do banco. Publicação e confirmação do
+comportamento na Vercel continuam pendentes.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

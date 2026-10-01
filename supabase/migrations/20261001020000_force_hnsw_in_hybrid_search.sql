@@ -7,18 +7,21 @@
 -- distância em vetores de 512 dimensões (TOAST) na varredura completa.
 --
 -- Correção, restrita a esta função (não muda configuração global):
---  * enable_seqscan = off: o planner prefere o HNSW (ou o GIN de tags,
---    quando o filtro de tags for seletivo). As tabelas pequenas
+--  * enable_seqscan = off (SET da função): o planner prefere o HNSW (ou o
+--    GIN de tags, quando o filtro de tags for seletivo). As tabelas pequenas
 --    (sources/index_versions) continuam sendo lidas, pois não há outro caminho.
---  * hnsw.ef_search = 500: o padrão (40) fazia o índice devolver só ~42
---    linhas para LIMIT 100, e filtros pós-índice (tags, categoria, limiar)
---    esvaziavam o resultado.
+--  * hnsw.ef_search = 500, via set_config(..., is_local => true) no corpo:
+--    o padrão (40) fazia o índice devolver só ~42 linhas para LIMIT 100, e
+--    filtros pós-índice (tags, categoria, limiar) esvaziavam o resultado.
+--    Não pode ser SET da função: no Supabase o role das migrations recebe
+--    42501 ao gravar hnsw.* em CREATE/ALTER FUNCTION.
 --  * hnsw.iterative_scan = strict_order (pgvector >= 0.8): continua varrendo
---    o índice até completar o LIMIT, mantendo a ordem exata. Aplicado só se a
---    extensão suportar, para a migration não falhar em versão antiga.
+--    o índice até completar o LIMIT, mantendo a ordem exata. Em versão que
+--    não conhece o parâmetro o erro é ignorado.
 --
--- Corpo, assinatura, SECURITY INVOKER e RLS permanecem idênticos à
--- 20261001010000_fix_hybrid_thumbnail_url.sql.
+-- A função passa a ser plpgsql e VOLATILE (set_config tem efeito colateral,
+-- restrito à transação). Assinatura, filtros, SECURITY INVOKER e RLS
+-- permanecem idênticos à 20261001010000_fix_hybrid_thumbnail_url.sql.
 
 begin;
 set local lock_timeout = '5s';
@@ -41,20 +44,29 @@ returns table (
   thumbnail_url text,
   score double precision
 )
-language sql
-stable
+language plpgsql
+volatile
 security invoker
 set enable_seqscan = off
-set hnsw.ef_search = 500
 as $$
+#variable_conflict use_column
+begin
+  perform set_config('hnsw.ef_search', '500', true);
+  begin
+    perform set_config('hnsw.iterative_scan', 'strict_order', true);
+  exception when others then
+    null;
+  end;
+
+  return query
   select
     ci.id,
     ci.title,
-    ci.metadata ->> 'code' as code,
-    ci.metadata ->> 'category' as category,
-    s.name as source,
-    ci.image_url as thumbnail_url,
-    1 - (ci.embedding <=> query_embedding) as score
+    ci.metadata ->> 'code',
+    ci.metadata ->> 'category',
+    s.name,
+    ci.image_url,
+    1 - (ci.embedding <=> query_embedding)
   from public.catalog_items ci
   join public.sources s on s.id = ci.source_id
   where ci.embedding is not null
@@ -80,19 +92,8 @@ as $$
     )
   order by ci.embedding <=> query_embedding
   limit match_limit;
+end;
 $$;
-
-do $$
-declare
-  v text;
-begin
-  select extversion into v from pg_extension where extname = 'vector';
-  if v is not null and string_to_array(v, '.')::int[] >= array[0, 8, 0] then
-    alter function public.match_catalog_items_hybrid(
-      vector(512), text[], integer, text, text, double precision, text[]
-    ) set hnsw.iterative_scan = 'strict_order';
-  end if;
-end $$;
 
 grant execute on function public.match_catalog_items_hybrid(
   vector(512), text[], integer, text, text, double precision, text[]

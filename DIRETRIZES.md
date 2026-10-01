@@ -1632,6 +1632,43 @@ grandes no navegador. Nenhuma alteração de precisão dos embeddings,
 índice, permissões ou timeout do banco. Publicação e confirmação do
 comportamento na Vercel continuam pendentes.
 
+## 2026-10-01 — Timeout 57014 na busca por imagem e miniaturas quebradas
+
+**Relato:** em produção, após o deploy, a busca por imagem retornou
+"catálogo demorou" (`57014`) e a busca por texto mostrou todas as
+miniaturas com erro.
+
+**Miniaturas:** `20261001000000_fast_code_or_title_search.sql` recriou
+`match_catalog_items_hybrid` com `coalesce(image_storage_path, image_url)`,
+revertendo a decisão de `20260926000000` (a UI precisa de `image_url`;
+`image_storage_path` é caminho interno do Storage). Corrigido por
+`20261001010000_fix_hybrid_thumbnail_url.sql`. Ao recriar essa função, sempre
+partir da versão mais recente e preservar `ci.image_url`.
+
+**Timeout:** `EXPLAIN ANALYZE` como `authenticated`, com 49.359 itens e o
+índice HNSW `catalog_items_embedding_idx` (117 MB, válido): o planner usava
+Seq Scan + top-N sort (~13-15 s, ~600 mil buffers) em vez do HNSW. Com
+`enable_seqscan = off` e o vetor como valor fixo, o índice foi usado
+(~0,9 s), mas devolveu só 42 linhas para LIMIT 100 (`hnsw.ef_search`
+padrão 40). Um teste anterior, com o vetor vindo de `join`, foi inválido:
+o HNSW só é usado com o vetor como valor fixo/InitPlan.
+
+**Correção:** `20261001020000_force_hnsw_in_hybrid_search.sql`. Função
+plpgsql VOLATILE com `SET enable_seqscan = off` e, no corpo,
+`set_config('hnsw.ef_search','500',true)` e `hnsw.iterative_scan =
+'strict_order'` (erro ignorado se a versão do pgvector não suportar).
+`SET hnsw.*` na definição da função foi negado no Supabase (`42501`), por
+isso a configuração fica no corpo. Filtros, assinatura, SECURITY INVOKER e
+RLS idênticos à versão anterior.
+
+**Validação:** migration aplicada pelo usuário no Supabase sem erro. Como
+`authenticated`, a função com LIMIT 100 retornou 100 linhas. Não foi
+possível testar localmente (sem Docker). Pendente: confirmar no site (busca
+por imagem, texto e filtro "Código") e registrar o tempo; a medição de
+tempo da função após a migration não foi feita. Risco conhecido: com
+`enable_seqscan = off`, filtros de tag pouco seletivos dependem do HNSW com
+varredura iterativa; se a busca por tag voltar vazia ou lenta, reavaliar.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

@@ -60,6 +60,16 @@ com confirmação do estado e da origem no banco (última indexação).
 Upload Admin e diretório local não recebem o indicador. Validado
 localmente; publicação do front-end ainda pendente.
 
+## Estado em 2026-10-01 (atualização: timeout e miniaturas)
+
+Após o deploy, a busca por imagem voltou a dar `57014` e as miniaturas
+quebraram na busca por texto. Causas e correções em `DIRETRIZES.md`
+(entrada "Timeout 57014 na busca por imagem e miniaturas quebradas").
+Migrations `20261001000000`, `20261001010000` e `20261001020000`
+aplicadas no Supabase; a função retorna 100 linhas como `authenticated`.
+Confirmação no site ainda pendente. Ao recriar `match_catalog_items_hybrid`,
+manter `ci.image_url` e o forçamento do índice HNSW.
+
 ## Estado em 2026-10-01
 
 Erro de texto `/class_head/Cast` reproduzido após falha do detector

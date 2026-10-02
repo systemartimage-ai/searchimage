@@ -9,6 +9,7 @@ import { loadTipoPrototypes } from '@/domains/catalog/loadTipoPrototypes'
 import { searchCatalog } from './searchCatalog'
 import { searchLocalDirectory } from './searchLocalDirectory'
 import { extractTagKeywords } from './extractTagKeywords'
+import { blendWithMirrorPrototype } from './blendMirrorQuery'
 import type { SearchResult } from './searchMockCatalog'
 
 // Categorias usadas pra classificar a FOTO de busca (não o texto) com
@@ -226,12 +227,23 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
       if (preparedQueryRef.current?.key !== query) {
         embeddingRef.current = null
         preparedQueryRef.current = await withRetry(async () => {
-          const embedding = await textProvider.embedText(query)
+          let embedding = await textProvider.embedText(query)
           // Palavras-chave que batem com tags conhecidas (ex. "leão" ->
           // `leao`) — busca prioriza esse sinal exato antes do semântico
           // puro (ver searchCatalog.ts). Robusto a como cada usuário
           // escreve, não depende de frase descritiva.
           const tagKeywords = extractTagKeywords(query)
+          // Só para espelho: o texto "mirror" sozinho ranqueia mal (ver
+          // blendMirrorQuery.ts). Falha ao carregar o protótipo não deve
+          // derrubar a busca — segue só com o texto.
+          if (tagKeywords.includes('espelho')) {
+            try {
+              const prototypes = await loadTipoPrototypes()
+              embedding = blendWithMirrorPrototype(embedding, prototypes.espelho)
+            } catch (error) {
+              console.warn('Protótipo de espelho indisponível; usando só o texto:', error)
+            }
+          }
           return { key: query, embedding, tagKeywords }
         }, 'processar texto')
       }

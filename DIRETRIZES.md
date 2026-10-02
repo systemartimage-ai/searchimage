@@ -1690,6 +1690,28 @@ automático da Vercel confirmado (`index-Dg5luln_.js`).
 **Pendente:** confirmar no site "CEU AZUL" retornando céu azul; bolinha
 verde só aparece em itens da fonte Artimage (web-catalog).
 
+## 2026-10-02 — Busca "espelho"/"mirror" trazia produtos que não são espelho
+
+**Relato:** dos primeiros resultados só 4 (os WING) eram espelhos.
+
+**Dados (49 mil itens):** 160 itens com tag `espelho`, 47.091 `quadro`, 9.449
+sem tipo. A busca exige apenas "não ser quadro" (ver `splitTagKeywords`) e
+ordena pelo vetor do texto "mirror", que o CLIP ranqueia mal contra fotos de
+produto. A tag também erra nos dois sentidos (falsos positivos e espelho sem
+tag), então exigir a tag não resolve.
+
+**Correção (só espelho):** `blendWithMirrorPrototype` soma o vetor do texto ao
+protótipo visual de espelho (`tipoPrototypes.json`, média de fotos reais
+confirmadas) quando a consulta contém a tag `espelho`. Se o protótipo não
+carregar, usa só o texto. Nenhuma migration; busca de quadro, imagem e demais
+termos inalterada. Validação em SQL (leitura) com o vetor real: protótipo +
+texto trouxe quase só espelhos (site e Upload Admin). 105 testes, lint,
+typecheck e build passaram.
+
+**Limite:** o teste de integração do hook cobre só o fallback (protótipo
+mockado vazio); a mistura em si é coberta por teste unitário e pela validação
+em SQL. Confirmação no site pendente.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

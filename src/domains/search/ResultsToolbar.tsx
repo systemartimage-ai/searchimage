@@ -10,8 +10,6 @@ interface ResultsToolbarProps {
   limit: number
   category: string
   code: string
-  acrylicOnly: boolean
-  onAcrylicOnlyChange: (value: boolean) => void
   onLimitChange: (limit: number) => void
   onCategoryChange: (category: string) => void
   onCodeChange: (code: string) => void
@@ -21,8 +19,6 @@ export function ResultsToolbar({
   limit,
   category,
   code,
-  acrylicOnly,
-  onAcrylicOnlyChange,
   onLimitChange,
   onCategoryChange,
   onCodeChange,
@@ -72,19 +68,6 @@ export function ResultsToolbar({
           className="h-9 w-52"
         />
       </div>
-
-      <label
-        htmlFor="filter-acrylic"
-        className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-      >
-        <input
-          id="filter-acrylic"
-          type="checkbox"
-          checked={acrylicOnly}
-          onChange={(e) => onAcrylicOnlyChange(e.target.checked)}
-        />
-        Somente acrílicos
-      </label>
 
       <p className="pb-2 text-xs text-muted-foreground">Ordenado por similaridade</p>
     </div>

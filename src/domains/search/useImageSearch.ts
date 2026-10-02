@@ -39,8 +39,8 @@ export interface SearchOptions {
   category?: string
   code?: string
   threshold?: number
-  /** Só acrílicos (tag `acrilico`) — ver searchCatalog.ts. */
-  acrylicOnly?: boolean
+  /** Marcou "Priorizar acrílicos": acrílicos primeiro, depois os mais parecidos. */
+  prioritizeAcrylic?: boolean
 }
 
 const MAX_ATTEMPTS = 3
@@ -114,16 +114,19 @@ async function searchAllSources(
   localItems: CatalogItem[],
   tagKeywords?: string[],
 ): Promise<SearchResult[]> {
-  const acrylicMode = !!options.acrylicOnly || !!tagKeywords?.includes('acrilico')
+  const keywords =
+    options.prioritizeAcrylic && !tagKeywords?.includes('acrilico')
+      ? [...(tagKeywords ?? []), 'acrilico']
+      : tagKeywords
+  const acrylicMode = !!keywords?.includes('acrilico')
   const [remote, local] = await Promise.all([
-    searchRemote(embedding, options, tagKeywords, acrylicMode),
+    searchRemote(embedding, options, keywords, acrylicMode),
     Promise.resolve(searchLocalDirectory(localItems, embedding, options)),
   ])
   // Acrílico: o banco já devolve acrílicos primeiro e depois os mais parecidos;
   // reordenar tudo por score misturaria os grupos. Itens do diretório local não
-  // têm a tag: ficam de fora em "Somente acrílicos" e entram depois no resto.
-  if (options.acrylicOnly) return remote
-  if (tagKeywords?.includes('acrilico')) {
+  // têm a tag: entram depois do que veio do catálogo.
+  if (acrylicMode) {
     return [...remote, ...local.sort((a, b) => b.score - a.score)].slice(0, options.limit)
   }
   return [...remote, ...local].sort((a, b) => b.score - a.score).slice(0, options.limit)

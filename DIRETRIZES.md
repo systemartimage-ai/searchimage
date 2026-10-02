@@ -1796,6 +1796,15 @@ Se o grupo passar de ~10 mil itens, revisar o limite.
 imagem) e 3. Fotos de referência: 9 dos 24 códigos positivos e 2 grupos de
 negativos existem no banco; os demais ainda não foram enviados.
 
+**Atualização (mesmo dia):** a pedido do usuário, o botão "Somente acrílicos"
+saiu da barra de filtros dos resultados e entrou a opção "Priorizar acrílicos" na
+tela inicial, abaixo das duas caixas de busca, valendo para texto e imagem (e para
+"Carregar mais"/filtros): marcada, a busca recebe a tag `acrilico` (acrílicos
+primeiro, depois os mais parecidos). Removido o modo "só acrílicos" do código.
+Também novo: botão fixo "TOPO" com seta (`ScrollToTopButton`), visível após rolar
+500 px na lista de resultados. 131 testes, lint, typecheck e build passaram.
+Não conferido visualmente no navegador (exige login).
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

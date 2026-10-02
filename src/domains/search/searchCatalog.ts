@@ -116,7 +116,7 @@ export async function searchCatalog(
   filters: SearchFilters,
   tagKeywords?: string[],
 ): Promise<SearchResult[]> {
-  if (filters.acrylicOnly || tagKeywords?.includes(ACRYLIC_TAG)) {
+  if (tagKeywords?.includes(ACRYLIC_TAG)) {
     return searchAcrylicFirst(queryEmbedding, filters, tagKeywords ?? [])
   }
   return searchByTags(queryEmbedding, filters, tagKeywords)
@@ -133,11 +133,10 @@ function baseRpcParams(queryEmbedding: number[], filters: SearchFilters) {
 }
 
 /**
- * Busca com acrílico (digitou "acrílico" ou ligou "Somente acrílicos"):
+ * Busca com acrílico (digitou "acrílico" ou marcou "Priorizar acrílicos"):
  * primeiro TODOS os itens com a tag `acrilico` mais próximos da consulta
- * (junto das demais tags exigidas) e, só se ainda houver espaço no limite e
- * "Somente acrílicos" estiver desligado, completa com os mais parecidos
- * visualmente que não são acrílico. Sem relaxar para busca livre: o grupo de
+ * (junto das demais tags exigidas) e, se ainda houver espaço no limite,
+ * completa com os mais parecidos visualmente que não são acrílico. Sem relaxar para busca livre: o grupo de
  * acrílicos nunca é substituído por outros itens antes de acabar.
  */
 async function searchAcrylicFirst(
@@ -154,7 +153,7 @@ async function searchAcrylicFirst(
   })
   if (error) throw error
   const acrylic = await toResults(data)
-  if (filters.acrylicOnly || acrylic.length >= filters.limit) return acrylic
+  if (acrylic.length >= filters.limit) return acrylic
 
   const rest = await searchByTags(queryEmbedding, filters, others.length > 0 ? others : undefined)
   const seen = new Set(acrylic.map((r) => r.item.id))

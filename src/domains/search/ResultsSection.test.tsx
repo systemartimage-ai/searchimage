@@ -46,25 +46,6 @@ describe('ResultsSection — carregar mais resultados', () => {
 
     await user.click(screen.getByRole('button', { name: /carregar mais 100/i }))
 
-    expect(onFiltersChange).toHaveBeenCalledWith({ limit: 200, category: '', code: '', acrylicOnly: false })
-  })
-})
-
-describe('ResultsSection — somente acrílicos', () => {
-  it('liga o filtro e mantém limite, categoria e código', async () => {
-    const user = userEvent.setup()
-    const onFiltersChange = vi.fn().mockResolvedValue(undefined)
-    render(
-      <ResultsSection status="success" results={makeResults(10)} onFiltersChange={onFiltersChange} />,
-    )
-
-    await user.click(screen.getByLabelText(/somente acrílicos/i))
-
-    expect(onFiltersChange).toHaveBeenCalledWith({
-      limit: 100,
-      category: '',
-      code: '',
-      acrylicOnly: true,
-    })
+    expect(onFiltersChange).toHaveBeenCalledWith({ limit: 200, category: '', code: '' })
   })
 })

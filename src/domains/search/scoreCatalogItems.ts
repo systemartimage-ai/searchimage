@@ -12,8 +12,6 @@ export interface SearchFilters {
   code?: string
   /** Similaridade mínima (0 a 1) para o item aparecer no resultado. */
   threshold?: number
-  /** Só itens de acrílico (tag `acrilico`); sem completar com os demais. */
-  acrylicOnly?: boolean
 }
 
 /**

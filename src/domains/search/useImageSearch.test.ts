@@ -113,3 +113,24 @@ describe('busca de acrílico — timeout com cache frio', () => {
     expect(mocks.search).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('"Priorizar acrílicos"', () => {
+  it('acrescenta a tag acrilico à busca quando marcado', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('céu azul', { limit: 100, prioritizeAcrylic: true }))
+    expect(mocks.search.mock.calls[0][2]).toContain('acrilico')
+  })
+
+  it('não altera a busca quando desmarcado', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('céu azul', { limit: 100 }))
+    expect(mocks.search.mock.calls[0][2] ?? []).not.toContain('acrilico')
+  })
+
+  it('"Carregar mais"/filtros mantêm a prioridade escolhida', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('céu azul', { limit: 100, prioritizeAcrylic: true }))
+    await act(() => result.current.applyFilters({ limit: 200, prioritizeAcrylic: true }))
+    expect(mocks.search.mock.calls[1][2]).toContain('acrilico')
+  })
+})

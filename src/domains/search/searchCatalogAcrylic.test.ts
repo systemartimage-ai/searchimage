@@ -36,15 +36,6 @@ describe('searchCatalog — acrílico', () => {
     expect(rpc.mock.calls[1][1].tag_keywords).toBeNull()
   })
 
-  it('"Somente acrílicos" não completa com outros itens', async () => {
-    rpc.mockResolvedValueOnce({ data: [row('a1', 0.9)], error: null })
-
-    const result = await searchCatalog(emb, { limit: 10, acrylicOnly: true }, [])
-
-    expect(result.map((r) => r.item.id)).toEqual(['a1'])
-    expect(rpc).toHaveBeenCalledTimes(1)
-  })
-
   it('não busca o resto quando os acrílicos já preenchem o limite', async () => {
     rpc.mockResolvedValueOnce({ data: [row('a1', 0.9), row('a2', 0.8)], error: null })
 

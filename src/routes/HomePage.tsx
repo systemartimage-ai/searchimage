@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { Header } from '@/components/Header'
 import { Dropzone } from '@/domains/search/Dropzone'
 import { TextSearchBox } from '@/domains/search/TextSearchBox'
 import { SourceCards } from '@/domains/search/SourceCards'
 import { ResultsSection } from '@/domains/search/ResultsSection'
+import { ScrollToTopButton } from '@/domains/search/ScrollToTopButton'
 import { useImageSearchContext } from '@/domains/search/useImageSearchContext'
 import { useLocalDirectoryContext } from '@/domains/localDirectory/useLocalDirectoryContext'
 
 export function HomePage() {
   const localDirectory = useLocalDirectoryContext()
+  // Vale para a próxima busca (texto ou imagem) e para "Carregar mais"/filtros.
+  const [prioritizeAcrylic, setPrioritizeAcrylic] = useState(false)
   const {
     status,
     searchMode,
@@ -49,18 +53,35 @@ export function HomePage() {
               previewUrl={previewUrl}
               onSelectFile={selectFile}
               onRemove={clear}
-              onSearch={() => runSearch({ limit: 100 })}
+              onSearch={() => runSearch({ limit: 100, prioritizeAcrylic })}
               searching={isBusy}
               scanActive={isBusy && searchMode === 'image'}
               scanLabel={scanLabel}
             />
             <TextSearchBox
-              onSearch={(text) => runTextSearch(text, { limit: 100 })}
+              onSearch={(text) => runTextSearch(text, { limit: 100, prioritizeAcrylic })}
               searching={isBusy}
               scanActive={isBusy && searchMode === 'text'}
               scanLabel={scanLabel}
             />
           </div>
+
+          <label
+            htmlFor="prioritize-acrylic"
+            className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+          >
+            <input
+              id="prioritize-acrylic"
+              type="checkbox"
+              checked={prioritizeAcrylic}
+              disabled={isBusy}
+              onChange={(e) => setPrioritizeAcrylic(e.target.checked)}
+            />
+            Priorizar acrílicos
+            <span className="text-xs text-muted-foreground">
+              (mostra os acrílicos primeiro, depois os demais mais parecidos)
+            </span>
+          </label>
 
           {status === 'error' && (
             <p
@@ -79,9 +100,14 @@ export function HomePage() {
         )}
 
         {showResults && (
-          <ResultsSection status={status} results={results} onFiltersChange={applyFilters} />
+          <ResultsSection
+            status={status}
+            results={results}
+            onFiltersChange={(filters) => applyFilters({ ...filters, prioritizeAcrylic })}
+          />
         )}
       </main>
+      {showResults && <ScrollToTopButton />}
     </div>
   )
 }

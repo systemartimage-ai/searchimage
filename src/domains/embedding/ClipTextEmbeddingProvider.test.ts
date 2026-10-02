@@ -4,6 +4,7 @@ import {
   looksPortuguese,
   normalizeQueryText,
   stripDomainGlossaryWord,
+  applyFootballGlossary,
   isPersonQuery,
   withPersonPrompt,
   ClipTextEmbeddingProvider,
@@ -163,5 +164,22 @@ describe('isPersonQuery', () => {
   it('ignora as demais buscas', () => {
     expect(isPersonQuery('céu azul')).toBe(false)
     expect(isPersonQuery('espelho')).toBe(false)
+  })
+})
+
+describe('applyFootballGlossary', () => {
+  it('"futebol" vira "soccer", igual a buscar "soccer"', () => {
+    expect(applyFootballGlossary('futebol', 'football')).toBe('soccer')
+    expect(applyFootballGlossary('jogo de futebol', 'football game')).toBe('soccer game')
+    expect(applyFootballGlossary('bola de futebol', 'football')).toBe('soccer')
+  })
+
+  it('"futebol americano" vira "american football"', () => {
+    expect(applyFootballGlossary('futebol americano', 'football')).toBe('american football')
+  })
+
+  it('não altera outras buscas', () => {
+    expect(applyFootballGlossary('basquete', 'basketball')).toBe('basketball')
+    expect(applyFootballGlossary('football', 'football')).toBe('football')
   })
 })

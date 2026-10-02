@@ -106,6 +106,19 @@ export function normalizeQueryText(text: string): string {
 // validadas — outros termos não foram testados com esse prefixo.
 const PERSON_WORDS = new Set(['menina', 'meninas', 'mulher', 'mulheres'])
 
+/**
+ * Achado real: o tradutor devolve "football" para "futebol" (e também para
+ * "futebol americano"). O CLIP lê "football" como futebol americano; a busca
+ * por "futebol" não trazia o mesmo que "soccer". Corrige só esse termo:
+ * "futebol" -> "soccer"; "futebol americano" -> "american football".
+ */
+export function applyFootballGlossary(originalText: string, englishText: string): string {
+  const words = stripAccents(originalText).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  if (!words.includes('futebol')) return englishText
+  const replacement = words.includes('americano') ? 'american football' : 'soccer'
+  return englishText.replace(/\b(american )?football\b/gi, replacement)
+}
+
 /** A consulta cita menina/mulher (ver PERSON_WORDS)? */
 export function isPersonQuery(originalText: string): boolean {
   const words = stripAccents(originalText).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
@@ -211,6 +224,7 @@ export class ClipTextEmbeddingProvider {
       }
     }
 
+    englishText = applyFootballGlossary(text, englishText)
     englishText = withPersonPrompt(text, englishText)
 
     const inputs = tokenizer([englishText], { padding: true, truncation: true })

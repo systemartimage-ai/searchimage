@@ -1754,6 +1754,12 @@ artístico — incluir retratos de meninas e peças MN na lista melhora o
 equilíbrio (regerar com `supabase/tests/prototipo_mulheres.sql`). Confirmação
 no site pendente.
 
+## 2026-10-02 — "futebol" não trazia o mesmo que "soccer"
+
+**Causa (reproduzida com o tradutor real):** "futebol" -> "football" e "futebol americano" -> "football"; o CLIP lê "football" como futebol americano.
+
+**Correção:** `applyFootballGlossary`, aplicado depois da tradução: com "futebol" na consulta, "football" vira "soccer" (idêntico a buscar "soccer"); com "futebol americano" vira "american football". Demais termos inalterados. Sem migration. 114 testes, lint, typecheck e build passaram. Confirmação no site pendente.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

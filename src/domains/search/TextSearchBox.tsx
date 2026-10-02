@@ -38,6 +38,7 @@ export function TextSearchBox({ onSearch, searching, scanActive, scanLabel }: Te
           disabled={searching}
           className="max-w-xs"
         />
+        <p className="text-xs text-muted-foreground">Busque em português ou inglês.</p>
         <Button type="submit" disabled={searching || !text.trim()}>
           {searching ? 'Buscando...' : 'Buscar'}
         </Button>

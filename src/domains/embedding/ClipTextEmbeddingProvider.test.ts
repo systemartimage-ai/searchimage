@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { pipeline, AutoTokenizer, CLIPTextModelWithProjection } from '@huggingface/transformers'
-import { looksPortuguese, stripDomainGlossaryWord, ClipTextEmbeddingProvider } from './ClipTextEmbeddingProvider'
+import {
+  looksPortuguese,
+  normalizeQueryText,
+  stripDomainGlossaryWord,
+  ClipTextEmbeddingProvider,
+} from './ClipTextEmbeddingProvider'
 
 vi.mock('@huggingface/transformers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@huggingface/transformers')>()
@@ -107,5 +112,29 @@ describe('cache de carregamento do modelo se recupera depois de uma falha', () =
     await expect(loaders.getTextModel()).rejects.toThrow('falha de rede')
     await expect(loaders.getTextModel()).resolves.toEqual({ ok: true })
     expect(mockFromPretrained).toHaveBeenCalledTimes(2)
+  })
+})
+
+// Achado real: "CEU AZUL" era traduzido como "THE SILVER" (o tradutor
+// diferencia caixa) e a busca devolvia imagens prateadas.
+describe('busca por texto em caixa alta', () => {
+  it('normalizeQueryText remove caixa alta e espaços extras', () => {
+    expect(normalizeQueryText('  CEU   AZUL ')).toBe('ceu azul')
+  })
+
+  it('embedText envia ao tradutor o texto em minúsculas', async () => {
+    const translator = vi.fn().mockResolvedValue([{ translation_text: 'blue sky' }])
+    vi.mocked(pipeline).mockResolvedValue(translator as never)
+    const tokenizer = vi.fn().mockReturnValue({})
+    vi.mocked(AutoTokenizer.from_pretrained).mockResolvedValue(tokenizer as never)
+    const textModel = vi.fn().mockResolvedValue({ text_embeds: { data: new Float32Array([3, 4]) } })
+    vi.mocked(CLIPTextModelWithProjection.from_pretrained).mockResolvedValue(textModel as never)
+
+    const vector = await new ClipTextEmbeddingProvider().embedText('CEU AZUL')
+
+    expect(translator).toHaveBeenCalledWith('ceu azul')
+    expect(tokenizer).toHaveBeenCalledWith(['blue sky'], expect.anything())
+    expect(vector[0]).toBeCloseTo(0.6)
+    expect(vector[1]).toBeCloseTo(0.8)
   })
 })

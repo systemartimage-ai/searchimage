@@ -86,6 +86,17 @@ const DOMAIN_GLOSSARY: Record<string, string> = {
   quadro: 'painting',
 }
 
+/**
+ * Achado real: o tradutor (MarianMT) diferencia maiúsculas de minúsculas.
+ * "CEU AZUL" virava "THE SILVER" (o app buscava prata/cinza em vez de céu
+ * azul), enquanto "ceu azul" e "céu azul" viravam "blue sky". Usuários
+ * digitam em caixa alta; o CLIP já ignora a caixa, então só normalizamos
+ * espaços e caixa antes de detectar idioma/traduzir.
+ */
+export function normalizeQueryText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 /** Lógica pura (sem carregar nenhum modelo) — testável isoladamente. */
 export function stripDomainGlossaryWord(text: string): { englishWord: string | null; rest: string } {
   for (const [pt, en] of Object.entries(DOMAIN_GLOSSARY)) {
@@ -159,7 +170,8 @@ export class ClipTextEmbeddingProvider {
     return this.textModelPromise
   }
 
-  async embedText(text: string): Promise<number[]> {
+  async embedText(rawText: string): Promise<number[]> {
+    const text = normalizeQueryText(rawText)
     const [tokenizer, textModel] = await Promise.all([this.getTokenizer(), this.getTextModel()])
 
     let englishText = text

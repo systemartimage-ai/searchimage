@@ -97,6 +97,20 @@ export function normalizeQueryText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+// Achado real: buscar só "girl and woman" no CLIP trazia sobretudo arte
+// abstrata/praia (similaridade máx. 0,31); a frase "a painting of a
+// woman/girl" trouxe retratos e ilustrações de mulheres nas primeiras
+// posições (conferido visualmente no catálogo real). O CLIP responde melhor
+// a descrição de imagem do que a palavra solta. Restrito às palavras
+// validadas — outros termos não foram testados com esse prefixo.
+const PERSON_WORDS = new Set(['menina', 'meninas', 'mulher', 'mulheres'])
+
+/** Prefixa a frase em inglês só para buscas por menina/mulher (ver PERSON_WORDS). */
+export function withPersonPrompt(originalText: string, englishText: string): string {
+  const words = stripAccents(originalText).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  return words.some((w) => PERSON_WORDS.has(w)) ? `a painting of ${englishText}` : englishText
+}
+
 /** Lógica pura (sem carregar nenhum modelo) — testável isoladamente. */
 export function stripDomainGlossaryWord(text: string): { englishWord: string | null; rest: string } {
   for (const [pt, en] of Object.entries(DOMAIN_GLOSSARY)) {
@@ -190,6 +204,8 @@ export class ClipTextEmbeddingProvider {
         englishText = 'translation_text' in translated ? translated.translation_text : text
       }
     }
+
+    englishText = withPersonPrompt(text, englishText)
 
     const inputs = tokenizer([englishText], { padding: true, truncation: true })
     const { text_embeds } = await textModel(inputs)

@@ -1712,6 +1712,23 @@ typecheck e build passaram.
 mockado vazio); a mistura em si é coberta por teste unitário e pela validação
 em SQL. Confirmação no site pendente.
 
+## 2026-10-02 — Busca "menina e mulher" pouco relevante
+
+**Relato:** resultados com pouco a ver com o pedido.
+
+**Testes (SQL read-only, vetores reais do CLIP):** refinar a consulta com a
+média dos 10 primeiros resultados NÃO melhorou (mesmos itens, outra ordem) e
+não foi adotado. Já a frase em inglês "a painting of a woman/girl" trouxe
+retratos e ilustrações de mulheres nas primeiras posições; a busca atual
+trazia sobretudo figuras abstratas/silhuetas e praia (conferido visualmente
+nas imagens do catálogo).
+
+**Correção (restrita):** `withPersonPrompt` prefixa "a painting of" somente
+quando a consulta contém menina/meninas/mulher/mulheres. Demais termos
+(homem, menino, criança, etc.) não foram testados e ficam fora até validação.
+Sem migration. 107 testes, lint, typecheck e build passaram. Confirmação no
+site pendente.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

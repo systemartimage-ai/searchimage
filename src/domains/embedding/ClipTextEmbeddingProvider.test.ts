@@ -4,6 +4,7 @@ import {
   looksPortuguese,
   normalizeQueryText,
   stripDomainGlossaryWord,
+  withPersonPrompt,
   ClipTextEmbeddingProvider,
 } from './ClipTextEmbeddingProvider'
 
@@ -136,5 +137,18 @@ describe('busca por texto em caixa alta', () => {
     expect(tokenizer).toHaveBeenCalledWith(['blue sky'], expect.anything())
     expect(vector[0]).toBeCloseTo(0.6)
     expect(vector[1]).toBeCloseTo(0.8)
+  })
+})
+
+describe('withPersonPrompt', () => {
+  it('prefixa buscas por menina/mulher com "a painting of"', () => {
+    expect(withPersonPrompt('menina e mulher', 'girl and woman')).toBe('a painting of girl and woman')
+    expect(withPersonPrompt('Mulheres', 'women')).toBe('a painting of women')
+  })
+
+  it('não altera as demais buscas', () => {
+    expect(withPersonPrompt('céu azul', 'blue sky')).toBe('blue sky')
+    expect(withPersonPrompt('espelho', 'mirror')).toBe('mirror')
+    expect(withPersonPrompt('mulheres', 'x')).not.toBe('x')
   })
 })

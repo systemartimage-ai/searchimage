@@ -1669,6 +1669,27 @@ tempo da função após a migration não foi feita. Risco conhecido: com
 `enable_seqscan = off`, filtros de tag pouco seletivos dependem do HNSW com
 varredura iterativa; se a busca por tag voltar vazia ou lenta, reavaliar.
 
+## 2026-10-01 — Busca por texto em caixa alta devolvia resultados errados
+
+**Relato:** "CEU AZUL" retornava só imagens prateadas/cinza, com etiqueta
+"Diferente" em todos os cards; antes retornava fotos de céu azul.
+
+**Hipótese descartada:** índice HNSW com baixa precisão para texto→imagem.
+Diagnóstico read-only (`supabase/tests/diagnostico_recall_hnsw.sql`) com o
+vetor real do CLIP: com `ef_search=100` o HNSW devolveu os mesmos 20 itens da
+busca exata e o mesmo melhor score (0,2858). O banco/a função estavam corretos.
+
+**Causa:** o tradutor `Xenova/opus-mt-ROMANCE-en` diferencia caixa:
+"CEU AZUL" → "THE SILVER"; "ceu azul"/"céu azul" → "blue sky".
+
+**Correção:** `normalizeQueryText` (trim, espaços e minúsculas) aplicado no
+início de `ClipTextEmbeddingProvider.embedText`. Testes: caixa alta chega
+minúscula ao tradutor. 103 testes, lint, typecheck e build passaram. Deploy
+automático da Vercel confirmado (`index-Dg5luln_.js`).
+
+**Pendente:** confirmar no site "CEU AZUL" retornando céu azul; bolinha
+verde só aparece em itens da fonte Artimage (web-catalog).
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

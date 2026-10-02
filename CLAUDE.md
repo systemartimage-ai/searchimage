@@ -67,7 +67,11 @@ quebraram na busca por texto. Causas e correções em `DIRETRIZES.md`
 (entrada "Timeout 57014 na busca por imagem e miniaturas quebradas").
 Migrations `20261001000000`, `20261001010000` e `20261001020000`
 aplicadas no Supabase; a função retorna 100 linhas como `authenticated`.
-Confirmação no site ainda pendente. Ao recriar `match_catalog_items_hybrid`,
+Confirmado pelo usuário em 2026-10-02: busca por imagem e texto,
+miniaturas e "CEU AZUL" funcionando em produção. A causa dos resultados
+errados era o tradutor sensível à caixa ("CEU AZUL" → "THE SILVER"),
+corrigida por `normalizeQueryText`. Migration `20261001030000` (duas
+estratégias de busca) aplicada. Ao recriar `match_catalog_items_hybrid`,
 manter `ci.image_url` e o forçamento do índice HNSW.
 
 ## Estado em 2026-10-01

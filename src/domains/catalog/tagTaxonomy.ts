@@ -106,10 +106,18 @@ export const TAG_CATEGORIES: Record<string, TagCategory> = {
 /** "tipo" classificado por protótipo (classifyTipoByPrototype.ts), não por rótulo de texto — ver comentário de TAG_CATEGORIES acima. */
 export const TIPO_TAG_VALUES = ['espelho', 'quadro'] as const
 
+/**
+ * "material": não é classificado pelo CLIP. `acrilico` é gravado por regra
+ * objetiva (pasta Artsy_ACRILICO, código terminado em AC, categoria
+ * Colecionáveis do site — ver acrylicRule.ts e a migration 20261002000000).
+ */
+export const MATERIAL_TAG_VALUES = ['acrilico'] as const
+
 /** Todo valor de tag que pode realmente ser salvo (exclui os rótulos-baseline "nenhum"/"sem X"). */
 export const ALL_TAG_VALUES: string[] = Array.from(
   new Set([
     ...TIPO_TAG_VALUES,
+    ...MATERIAL_TAG_VALUES,
     ...Object.values(TAG_CATEGORIES).flatMap((cat) =>
       cat.labels.map(([pt]) => pt).filter((pt) => pt !== cat.requireBeatsBaseline),
     ),

@@ -18,3 +18,15 @@ describe('extractTagKeywords', () => {
     expect(extractTagKeywords('paisagem azul com montanhas')).not.toContain('espelho')
   })
 })
+
+describe('extractTagKeywords — acrílico', () => {
+  it('reconhece acrílico em português e inglês, com ou sem acento e plural', () => {
+    for (const q of ['acrílico', 'ACRILICO', 'acrílicos', 'acrylic', 'Acrylics']) {
+      expect(extractTagKeywords(q), q).toContain('acrilico')
+    }
+  })
+
+  it('combina com outra tag (leão acrílico)', () => {
+    expect(extractTagKeywords('leão acrílico')).toEqual(expect.arrayContaining(['leao', 'acrilico']))
+  })
+})

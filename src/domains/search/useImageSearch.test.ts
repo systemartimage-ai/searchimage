@@ -95,3 +95,21 @@ describe('busca por menina/mulher mistura o protótipo visual', () => {
     expect(mocks.search.mock.calls[0][0]).toEqual([1, 0])
   })
 })
+
+describe('busca de acrílico — timeout com cache frio', () => {
+  it('repete uma vez quando a busca de acrílico dá timeout', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.search.mockRejectedValueOnce({ code: '57014' }).mockResolvedValueOnce([])
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('acrílico', { limit: 100 }))
+    expect(mocks.search).toHaveBeenCalledTimes(2)
+    expect(result.current.errorMessage).toBeNull()
+  })
+
+  it('não repete timeout das demais buscas', async () => {
+    mocks.search.mockRejectedValueOnce({ code: '57014' })
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('quadro azul', { limit: 100 }))
+    expect(mocks.search).toHaveBeenCalledTimes(1)
+  })
+})

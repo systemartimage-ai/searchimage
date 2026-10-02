@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { TAG_CATEGORIES } from '@/domains/catalog/tagTaxonomy'
 import { classifyTags, type TagLabelEmbeddings } from '@/domains/catalog/tagClassifier'
 import { resolveTipoTag, type TipoPrototypes } from '@/domains/catalog/classifyTipoByPrototype'
+import { ACRYLIC_TAG, isAcrylic } from '@/domains/catalog/acrylicRule'
 import { embedInWorker } from '@/domains/localDirectory/clipWorkerClient'
 import { compressForStorage } from './compressForStorage'
 import { buildExternalId, buildStoragePath, deriveMetadataFromPath } from './bulkUploadLogic'
@@ -73,6 +74,9 @@ export async function processEntry(
     tags = classifyTags(embedding, TAG_CATEGORIES, deps.labelEmbeddings)
     const tipo = resolveTipoTag(embedding, deps.tipoPrototypes, metadata.category)
     if (tipo) tags.push(tipo)
+    // Material por regra objetiva (pasta/código), não pelo CLIP — ver acrylicRule.ts.
+    // A barra inicial faz a pasta casar mesmo quando é a raiz do envio.
+    if (isAcrylic({ title: metadata.title, storagePath: `/${externalId}` })) tags.push(ACRYLIC_TAG)
   } catch (err) {
     return {
       status: 'error',

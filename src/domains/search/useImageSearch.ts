@@ -39,6 +39,8 @@ export interface SearchOptions {
   category?: string
   code?: string
   threshold?: number
+  /** Só acrílicos (tag `acrilico`) — ver searchCatalog.ts. */
+  acrylicOnly?: boolean
 }
 
 const MAX_ATTEMPTS = 3
@@ -84,6 +86,27 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
   throw new Error('unreachable')
 }
 
+/**
+ * Consulta ao catálogo. Busca de acrílico lê ~7 mil vetores: na primeira
+ * chamada com o cache do banco frio levou 8,5 s (o limite é ~8 s) e 0,85 s na
+ * seguinte. Um único retry automático só para esse caso, já com o cache
+ * aquecido; os demais timeouts continuam sem repetição (ver withRetry).
+ */
+async function searchRemote(
+  embedding: number[],
+  options: SearchOptions,
+  tagKeywords: string[] | undefined,
+  acrylicMode: boolean,
+): Promise<SearchResult[]> {
+  try {
+    return await searchCatalog(embedding, options, tagKeywords)
+  } catch (error) {
+    if (!acrylicMode || !isQueryTimeout(error)) throw error
+    console.warn('[busca de acrílico] timeout com cache frio; tentando uma vez de novo')
+    return searchCatalog(embedding, options, tagKeywords)
+  }
+}
+
 /** Combina Catálogo Indexado (Postgres) + Diretório Local (memória) num único ranking. */
 async function searchAllSources(
   embedding: number[],
@@ -91,10 +114,18 @@ async function searchAllSources(
   localItems: CatalogItem[],
   tagKeywords?: string[],
 ): Promise<SearchResult[]> {
+  const acrylicMode = !!options.acrylicOnly || !!tagKeywords?.includes('acrilico')
   const [remote, local] = await Promise.all([
-    searchCatalog(embedding, options, tagKeywords),
+    searchRemote(embedding, options, tagKeywords, acrylicMode),
     Promise.resolve(searchLocalDirectory(localItems, embedding, options)),
   ])
+  // Acrílico: o banco já devolve acrílicos primeiro e depois os mais parecidos;
+  // reordenar tudo por score misturaria os grupos. Itens do diretório local não
+  // têm a tag: ficam de fora em "Somente acrílicos" e entram depois no resto.
+  if (options.acrylicOnly) return remote
+  if (tagKeywords?.includes('acrilico')) {
+    return [...remote, ...local.sort((a, b) => b.score - a.score)].slice(0, options.limit)
+  }
   return [...remote, ...local].sort((a, b) => b.score - a.score).slice(0, options.limit)
 }
 

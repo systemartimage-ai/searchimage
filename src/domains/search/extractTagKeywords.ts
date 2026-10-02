@@ -10,6 +10,8 @@ import { ALL_TAG_VALUES } from '@/domains/catalog/tagTaxonomy'
 const EN_TAG_SYNONYMS: Record<string, string> = {
   mirror: 'espelho',
   mirrors: 'espelho',
+  acrylic: 'acrilico',
+  acrylics: 'acrilico',
 }
 
 function normalize(text: string): string {

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { CatalogItem } from '@/domains/catalog/types'
 import { TIPO_TAG_VALUES } from '@/domains/catalog/tagTaxonomy'
+import { ACRYLIC_TAG } from '@/domains/catalog/acrylicRule'
 import type { SearchFilters, SearchResult } from './searchMockCatalog'
 
 interface MatchCatalogItemsRow {
@@ -115,13 +116,57 @@ export async function searchCatalog(
   filters: SearchFilters,
   tagKeywords?: string[],
 ): Promise<SearchResult[]> {
-  const baseParams = {
+  if (filters.acrylicOnly || tagKeywords?.includes(ACRYLIC_TAG)) {
+    return searchAcrylicFirst(queryEmbedding, filters, tagKeywords ?? [])
+  }
+  return searchByTags(queryEmbedding, filters, tagKeywords)
+}
+
+function baseRpcParams(queryEmbedding: number[], filters: SearchFilters) {
+  return {
     query_embedding: queryEmbedding,
     match_limit: filters.limit,
     match_category: filters.category || null,
     match_code: filters.code?.trim() || null,
     match_threshold: filters.threshold ?? null,
   }
+}
+
+/**
+ * Busca com acrílico (digitou "acrílico" ou ligou "Somente acrílicos"):
+ * primeiro TODOS os itens com a tag `acrilico` mais próximos da consulta
+ * (junto das demais tags exigidas) e, só se ainda houver espaço no limite e
+ * "Somente acrílicos" estiver desligado, completa com os mais parecidos
+ * visualmente que não são acrílico. Sem relaxar para busca livre: o grupo de
+ * acrílicos nunca é substituído por outros itens antes de acabar.
+ */
+async function searchAcrylicFirst(
+  queryEmbedding: number[],
+  filters: SearchFilters,
+  tagKeywords: string[],
+): Promise<SearchResult[]> {
+  const others = tagKeywords.filter((t) => t !== ACRYLIC_TAG)
+  const { requireTags, excludeTags } = splitTagKeywords(others)
+  const { data, error } = await supabase.rpc('match_catalog_items_hybrid', {
+    ...baseRpcParams(queryEmbedding, filters),
+    tag_keywords: [...requireTags, ACRYLIC_TAG],
+    exclude_tags: excludeTags.length > 0 ? excludeTags : null,
+  })
+  if (error) throw error
+  const acrylic = await toResults(data)
+  if (filters.acrylicOnly || acrylic.length >= filters.limit) return acrylic
+
+  const rest = await searchByTags(queryEmbedding, filters, others.length > 0 ? others : undefined)
+  const seen = new Set(acrylic.map((r) => r.item.id))
+  return [...acrylic, ...rest.filter((r) => !seen.has(r.item.id))].slice(0, filters.limit)
+}
+
+async function searchByTags(
+  queryEmbedding: number[],
+  filters: SearchFilters,
+  tagKeywords?: string[],
+): Promise<SearchResult[]> {
+  const baseParams = baseRpcParams(queryEmbedding, filters)
 
   if (tagKeywords && tagKeywords.length > 0) {
     const { requireTags, excludeTags } = splitTagKeywords(tagKeywords)

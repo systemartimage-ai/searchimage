@@ -13,13 +13,19 @@ const LOAD_MORE_STEP = 100
 interface ResultsSectionProps {
   status: SearchStatus
   results: SearchResult[]
-  onFiltersChange: (filters: { limit: number; category: string; code: string }) => void | Promise<void>
+  onFiltersChange: (filters: {
+    limit: number
+    category: string
+    code: string
+    acrylicOnly: boolean
+  }) => void | Promise<void>
 }
 
 export function ResultsSection({ status, results, onFiltersChange }: ResultsSectionProps) {
   const [limit, setLimit] = useState(100)
   const [category, setCategory] = useState('')
   const [code, setCode] = useState('')
+  const [acrylicOnly, setAcrylicOnly] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -36,11 +42,14 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
     }
   }, [status])
 
-  function update(next: Partial<{ limit: number; category: string; code: string }>) {
-    const merged = { limit, category, code, ...next }
+  function update(
+    next: Partial<{ limit: number; category: string; code: string; acrylicOnly: boolean }>,
+  ) {
+    const merged = { limit, category, code, acrylicOnly, ...next }
     setLimit(merged.limit)
     setCategory(merged.category)
     setCode(merged.code)
+    setAcrylicOnly(merged.acrylicOnly)
     return onFiltersChange(merged)
   }
 
@@ -65,6 +74,8 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
           limit={limit}
           category={category}
           code={code}
+          acrylicOnly={acrylicOnly}
+          onAcrylicOnlyChange={(v) => update({ acrylicOnly: v })}
           onLimitChange={(v) => update({ limit: v })}
           onCategoryChange={(v) => update({ category: v })}
           onCodeChange={(v) => update({ code: v })}
@@ -84,6 +95,8 @@ export function ResultsSection({ status, results, onFiltersChange }: ResultsSect
         limit={limit}
         category={category}
         code={code}
+        acrylicOnly={acrylicOnly}
+        onAcrylicOnlyChange={(v) => update({ acrylicOnly: v })}
         onLimitChange={(v) => update({ limit: v })}
         onCategoryChange={(v) => update({ category: v })}
         onCodeChange={(v) => update({ code: v })}

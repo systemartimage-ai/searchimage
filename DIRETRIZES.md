@@ -1760,6 +1760,42 @@ no site pendente.
 
 **Correção:** `applyFootballGlossary`, aplicado depois da tradução: com "futebol" na consulta, "football" vira "soccer" (idêntico a buscar "soccer"); com "futebol americano" vira "american football". Demais termos inalterados. Sem migration. 114 testes, lint, typecheck e build passaram. Confirmação no site pendente.
 
+## 2026-10-02 — Filtro de acrílico (Etapa 1: regras objetivas)
+
+**Pedido:** canalizar a busca para os produtos de acrílico; botão "Somente
+acrílicos"; digitar "acrílico" direciona a busca; acrílicos primeiro e depois
+os não acrílicos mais parecidos visualmente. Etapas combinadas: 1) pasta/código,
+2) marcador visual (protótipo a partir de fotos de referência), 3) semelhança.
+
+**Regra (confirmada pelo usuário):** pasta Artsy_ACRILICO; código com AC + até 3
+letras no fim ou antes de traço (-AC, -ACBZ, -ACDB-L, .AC, -AC-AMB) — AC no
+início NÃO conta; site Artimage categoria "Colecionáveis" (Collectibles).
+Galeria GALERIA_CL_-_Collectibles: só quem termina em AC (os demais não são
+acrílico). Implementada em `src/domains/catalog/acrylicRule.ts` e na migration
+`20261002000000_tag_acrilico.sql` (dados). 7.418 itens marcados com a tag
+`acrilico` em lotes pelo SQL Editor; cópia das tags originais em
+`catalog_items_tags_backup_20261002` (RLS ligada, sem policy) — reversão no
+final da migration. Itens novos: regra aplicada em `processEntry.ts` (upload) e
+`scripts/generateTags.mjs` (que com --force regrava as tags por inteiro).
+
+**Busca:** `searchCatalog` — com a tag `acrilico` (digitada ou botão), primeiro
+todos os acrílicos (com as demais tags exigidas) e, se sobrar espaço e o botão
+estiver desligado, completa com os mais parecidos sem repetir; "Somente
+acrílicos" não completa. `searchAllSources` preserva essa ordem. Botão na barra
+de filtros dos resultados. "acrílico/acrilico/acrylic" reconhecidos.
+
+**Banco:** migration `20261002010000_acrylic_exact_search.sql` — limite do
+caminho exato da função de busca 2.500 -> 10.000 (acrílico = 7.418 > 2.500
+caía no HNSW e devolvia ~65 de 100). Medido como authenticated: somente
+acrílico 100 linhas 8,5 s na 1ª chamada (cache frio) e 0,85 s na seguinte; quadro
+4,5 s; sem filtro 5 ms. **Risco:** a 1ª busca de acrílico com cache frio pode
+passar do limite de ~8 s; o app repete UMA vez (só busca de acrílico).
+Se o grupo passar de ~10 mil itens, revisar o limite.
+
+**Pendente:** confirmar no site; Etapas 2 (marcador visual + etiqueta no campo da
+imagem) e 3. Fotos de referência: 9 dos 24 códigos positivos e 2 grupos de
+negativos existem no banco; os demais ainda não foram enviados.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

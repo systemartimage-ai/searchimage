@@ -28,6 +28,7 @@ import { CLIP_MODEL_ID } from '../src/domains/embedding/ClipEmbeddingProvider.ts
 import { TAG_CATEGORIES } from '../src/domains/catalog/tagTaxonomy.ts'
 import { classifyCategory } from '../src/domains/catalog/tagClassifier.ts'
 import { resolveTipoTag } from '../src/domains/catalog/classifyTipoByPrototype.ts'
+import { ACRYLIC_TAG, isAcrylic } from '../src/domains/catalog/acrylicRule.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
@@ -100,7 +101,7 @@ async function main() {
   for (let from = 0; ; from += pageSize) {
     let query = supabase
       .from('catalog_items')
-      .select('id, embedding, metadata, tags')
+      .select('id, title, image_storage_path, embedding, metadata, tags')
       .not('embedding', 'is', null)
       .range(from, from + pageSize - 1)
     if (sourceId) query = query.eq('source_id', sourceId)
@@ -132,6 +133,10 @@ async function main() {
     const tags = []
     const tipo = resolveTipoTag(embedding, tipoPrototypes, item.metadata?.category)
     if (tipo) tags.push(tipo)
+    // --force regrava `tags` por inteiro: sem isto a marca de acrílico se perderia.
+    if (isAcrylic({ title: item.title, storagePath: item.image_storage_path, sourceCategory: item.metadata?.category })) {
+      tags.push(ACRYLIC_TAG)
+    }
     for (const [catName, catDef] of Object.entries(TAG_CATEGORIES)) {
       if (catDef.onlyIfHasTag && !tags.includes(catDef.onlyIfHasTag)) continue
       tags.push(...classifyCategory(embedding, catDef, labelEmbeddingsByCategory[catName]))

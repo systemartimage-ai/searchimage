@@ -106,10 +106,15 @@ export function normalizeQueryText(text: string): string {
 // validadas — outros termos não foram testados com esse prefixo.
 const PERSON_WORDS = new Set(['menina', 'meninas', 'mulher', 'mulheres'])
 
+/** A consulta cita menina/mulher (ver PERSON_WORDS)? */
+export function isPersonQuery(originalText: string): boolean {
+  const words = stripAccents(originalText).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  return words.some((w) => PERSON_WORDS.has(w))
+}
+
 /** Prefixa a frase em inglês só para buscas por menina/mulher (ver PERSON_WORDS). */
 export function withPersonPrompt(originalText: string, englishText: string): string {
-  const words = stripAccents(originalText).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
-  return words.some((w) => PERSON_WORDS.has(w)) ? `a portrait of ${englishText}` : englishText
+  return isPersonQuery(originalText) ? `a portrait of ${englishText}` : englishText
 }
 
 /** Lógica pura (sem carregar nenhum modelo) — testável isoladamente. */

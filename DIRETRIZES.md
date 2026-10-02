@@ -1736,6 +1736,24 @@ duas → pinturas. "a portrait of a woman/girl" → retratos figurativos E
 fotografias reais de meninas (NC030A, NC044A, NC053A). Prefixo trocado para
 "a portrait of"; mesma lista restrita de palavras. Pendente: confirmar no site.
 
+**Atualização 2 (mesmo dia): protótipo visual para menina/mulher.** A galeria
+MN (Mono Giraud, 81 peças, fotos conceituais de mulheres com chapéu/véu/turbante)
+ficava longe do top 100 (posições 11, 140 e >1.200), pois o rosto quase nunca
+aparece e o CLIP não as lê como "retrato". Usuário informou 10 códigos de
+referência (DA001A-6249-022, GAI-ATY1954A-120120, AV215G-6250-1287,
+GAI-ATY675B-8055, GAI-FH022I-8058EN, NC061A-123123-448, SB006C-6363-1081,
+NC060A-123123-448, AR003C-12080-1PO, EI003F-6646-1097). A média dos embeddings
+deles (normalizada) está em `src/domains/catalog/pessoasPrototype.json`.
+Teste em SQL (read-only): protótipo sozinho puxava demais para nu/tatuagem
+(exemplos enviesados); protótipo + texto ("a portrait of girl and woman") ficou
+equilibrado e subiu as MN para as posições 78, 94 e 102. Aplicado como no
+espelho: `blendWithPrototype`, só quando `isPersonQuery` (menina/meninas/
+mulher/mulheres); sem o protótipo cai no texto. Sem migration. 111 testes, lint,
+typecheck e build passaram. **Limites:** exemplos enviesados para corpo/nu
+artístico — incluir retratos de meninas e peças MN na lista melhora o
+equilíbrio (regerar com `supabase/tests/prototipo_mulheres.sql`). Confirmação
+no site pendente.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

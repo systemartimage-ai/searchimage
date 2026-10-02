@@ -11,6 +11,10 @@ vi.mock('@/domains/embedding', () => ({
   ClipTextEmbeddingProvider: class {
     embedText = mocks.text
   },
+  isPersonQuery: (text: string) => /mulher|menina/i.test(text),
+}))
+vi.mock('@/domains/catalog/loadPessoasPrototype', () => ({
+  loadPessoasPrototype: async () => [0, 1],
 }))
 vi.mock('./searchCatalog', () => ({ searchCatalog: mocks.search }))
 vi.mock('@/domains/catalog/loadTagLabelEmbeddings', () => ({
@@ -73,5 +77,21 @@ describe('busca — reaproveitamento do processamento e recuperação', () => {
     expect(mocks.text).toHaveBeenCalledTimes(2)
     expect(mocks.search).toHaveBeenCalledTimes(1)
     expect(result.current.status).toBe('empty')
+  })
+})
+
+describe('busca por menina/mulher mistura o protótipo visual', () => {
+  it('envia ao banco texto + protótipo só para essas buscas', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('mulher', { limit: 100 }))
+    const sent = mocks.search.mock.calls[0][0] as number[]
+    expect(sent[0]).toBeCloseTo(Math.SQRT1_2)
+    expect(sent[1]).toBeCloseTo(Math.SQRT1_2)
+  })
+
+  it('não altera o vetor das demais buscas', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    await act(() => result.current.runTextSearch('céu azul', { limit: 100 }))
+    expect(mocks.search.mock.calls[0][0]).toEqual([1, 0])
   })
 })

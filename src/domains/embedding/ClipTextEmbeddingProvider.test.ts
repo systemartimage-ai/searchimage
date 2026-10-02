@@ -4,6 +4,7 @@ import {
   looksPortuguese,
   normalizeQueryText,
   stripDomainGlossaryWord,
+  isPersonQuery,
   withPersonPrompt,
   ClipTextEmbeddingProvider,
 } from './ClipTextEmbeddingProvider'
@@ -150,5 +151,17 @@ describe('withPersonPrompt', () => {
     expect(withPersonPrompt('céu azul', 'blue sky')).toBe('blue sky')
     expect(withPersonPrompt('espelho', 'mirror')).toBe('mirror')
     expect(withPersonPrompt('mulheres', 'x')).not.toBe('x')
+  })
+})
+
+describe('isPersonQuery', () => {
+  it('reconhece menina/mulher, com plural e sem acento', () => {
+    expect(isPersonQuery('Menina e MULHER')).toBe(true)
+    expect(isPersonQuery('mulheres')).toBe(true)
+  })
+
+  it('ignora as demais buscas', () => {
+    expect(isPersonQuery('céu azul')).toBe(false)
+    expect(isPersonQuery('espelho')).toBe(false)
   })
 })

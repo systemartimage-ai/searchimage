@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ClipEmbeddingProvider, ClipTextEmbeddingProvider } from '@/domains/embedding'
+import { ClipEmbeddingProvider, ClipTextEmbeddingProvider, isPersonQuery } from '@/domains/embedding'
 import type { CatalogItem } from '@/domains/catalog/types'
 import { TAG_CATEGORIES } from '@/domains/catalog/tagTaxonomy'
 import { classifyTags } from '@/domains/catalog/tagClassifier'
@@ -9,7 +9,8 @@ import { loadTipoPrototypes } from '@/domains/catalog/loadTipoPrototypes'
 import { searchCatalog } from './searchCatalog'
 import { searchLocalDirectory } from './searchLocalDirectory'
 import { extractTagKeywords } from './extractTagKeywords'
-import { blendWithMirrorPrototype } from './blendMirrorQuery'
+import { blendWithMirrorPrototype, blendWithPrototype } from './blendMirrorQuery'
+import { loadPessoasPrototype } from '@/domains/catalog/loadPessoasPrototype'
 import type { SearchResult } from './searchMockCatalog'
 
 // Categorias usadas pra classificar a FOTO de busca (não o texto) com
@@ -242,6 +243,15 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
               embedding = blendWithMirrorPrototype(embedding, prototypes.espelho)
             } catch (error) {
               console.warn('Protótipo de espelho indisponível; usando só o texto:', error)
+            }
+          }
+          // Só para menina/mulher: texto + protótipo visual de fotos de
+          // mulheres confirmadas (ver DIRETRIZES.md). Sem protótipo, só texto.
+          if (isPersonQuery(query)) {
+            try {
+              embedding = blendWithPrototype(embedding, await loadPessoasPrototype())
+            } catch (error) {
+              console.warn('Protótipo de pessoas indisponível; usando só o texto:', error)
             }
           }
           return { key: query, embedding, tagKeywords }

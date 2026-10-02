@@ -8,7 +8,7 @@
  * Medido no catálogo real (49 mil itens): protótipo + texto trouxe
  * quase só espelhos, do site e do Upload Admin.
  */
-export function blendWithMirrorPrototype(textEmbedding: number[], mirrorPrototype: number[]): number[] {
+export function blendWithPrototype(textEmbedding: number[], mirrorPrototype: number[]): number[] {
   if (!mirrorPrototype || mirrorPrototype.length !== textEmbedding.length) return textEmbedding
   const norm = (v: number[]) => Math.hypot(...v) || 1
   const nt = norm(textEmbedding)
@@ -17,3 +17,6 @@ export function blendWithMirrorPrototype(textEmbedding: number[], mirrorPrototyp
   const ns = norm(sum)
   return sum.map((x) => x / ns)
 }
+
+/** Nome original, mantido para a busca de espelho. */
+export const blendWithMirrorPrototype = blendWithPrototype

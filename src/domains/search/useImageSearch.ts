@@ -11,6 +11,8 @@ import { searchLocalDirectory } from './searchLocalDirectory'
 import { extractTagKeywords } from './extractTagKeywords'
 import { blendWithMirrorPrototype, blendWithPrototype } from './blendMirrorQuery'
 import { loadPessoasPrototype } from '@/domains/catalog/loadPessoasPrototype'
+import { looksAcrylic } from '@/domains/catalog/acrylicMarker'
+import { loadAcrylicMarker } from '@/domains/catalog/loadAcrylicMarker'
 import type { SearchResult } from './searchMockCatalog'
 
 // Categorias usadas pra classificar a FOTO de busca (não o texto) com
@@ -138,6 +140,8 @@ export type SearchMode = 'image' | 'text' | null
 export function useImageSearch(localItems: CatalogItem[] = []) {
   const [status, setStatus] = useState<SearchStatus>('idle')
   const [searchMode, setSearchMode] = useState<SearchMode>(null)
+  // A foto enviada parece acrílico (marcador visual) — mostra a etiqueta no campo da imagem.
+  const [imageLooksAcrylic, setImageLooksAcrylic] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [results, setResults] = useState<SearchResult[]>([])
@@ -165,6 +169,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     setResults([])
     setErrorMessage(null)
     setSearchMode(null)
+    setImageLooksAcrylic(false)
     setStatus('idle')
   }, [])
 
@@ -222,6 +227,13 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
             )
             const tipo = classifyTipoByPrototype(embedding, tipoPrototypes)
             if (tipo) tagKeywords.push(tipo)
+            // Marcador visual de acrílico: só prioriza (acrílicos primeiro), não trava.
+            // Falha ao carregar o marcador não derruba a busca.
+            try {
+              if (looksAcrylic(embedding, await loadAcrylicMarker())) tagKeywords.push('acrilico')
+            } catch (error) {
+              console.warn('Marcador de acrílico indisponível; seguindo sem ele:', error)
+            }
             return { key: file, embedding, tagKeywords }
           }, 'processar imagem')
         }
@@ -234,6 +246,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
 
         embeddingRef.current = embedding
         tagKeywordsRef.current = tagKeywords
+        setImageLooksAcrylic(tagKeywords.includes('acrilico'))
         setResults(found)
         setStatus(found.length === 0 ? 'empty' : 'success')
       } catch (error) {
@@ -255,6 +268,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     setPreviewUrl(null)
     setErrorMessage(null)
     setSearchMode('text')
+    setImageLooksAcrylic(false)
     setStatus('embedding')
 
     try {
@@ -336,6 +350,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
   return {
     status,
     searchMode,
+    imageLooksAcrylic,
     file,
     previewUrl,
     results,

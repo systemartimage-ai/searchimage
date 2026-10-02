@@ -14,6 +14,8 @@ interface DropzoneProps {
   scanActive: boolean
   /** Texto do overlay de scan enquanto `scanActive` é true (ex.: etapa atual do pipeline). */
   scanLabel?: string
+  /** O marcador visual achou que a foto parece acrílico. */
+  looksAcrylic?: boolean
 }
 
 export function Dropzone({
@@ -24,6 +26,7 @@ export function Dropzone({
   searching,
   scanActive,
   scanLabel,
+  looksAcrylic = false,
 }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -68,6 +71,14 @@ export function Dropzone({
           />
           {scanActive && <ScanOverlay label={scanLabel ?? 'Analisando com IA...'} />}
         </div>
+        {looksAcrylic && !scanActive && (
+          <p
+            className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground"
+            title="A foto parece um produto de acrílico: os acrílicos aparecem primeiro nos resultados."
+          >
+            Acrílico (provável)
+          </p>
+        )}
         <div className="flex flex-wrap justify-center gap-2">
           <Button variant="outline" onClick={() => inputRef.current?.click()}>
             Trocar imagem

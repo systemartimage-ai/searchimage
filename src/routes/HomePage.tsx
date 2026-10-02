@@ -15,6 +15,7 @@ export function HomePage() {
   const {
     status,
     searchMode,
+    imageLooksAcrylic,
     previewUrl,
     results,
     errorMessage,
@@ -57,6 +58,7 @@ export function HomePage() {
               searching={isBusy}
               scanActive={isBusy && searchMode === 'image'}
               scanLabel={scanLabel}
+              looksAcrylic={imageLooksAcrylic}
             />
             <TextSearchBox
               onSearch={(text) => runTextSearch(text, { limit: 100, prioritizeAcrylic })}

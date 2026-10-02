@@ -1805,6 +1805,31 @@ Também novo: botão fixo "TOPO" com seta (`ScrollToTopButton`), visível após 
 500 px na lista de resultados. 131 testes, lint, typecheck e build passaram.
 Não conferido visualmente no navegador (exige login).
 
+## 2026-10-02 — Filtro de acrílico (Etapa 2: marcador visual)
+
+**Teste 1 (cara média, SQL):** protótipo de acrílico vs. "outros" separou pouco
+(margem >= 0,02: 47% dos acrílicos, 62% de acerto) — descartado como marcador.
+
+**Teste 2 (classificador treinado):** `scripts/trainAcrylicMarker.mjs` — regressão
+logística sobre os embeddings (56.700 itens, rótulo = tag `acrilico`), com chave de
+serviço do .env.local SÓ PARA LEITURA (autorizado pelo usuário), divisão 80/20 por
+produto-base (código antes do 1º hífen) para não vazar versões do mesmo produto.
+Em 15.328 itens não vistos (1.559 acrílicos): AUC 0,952; corte 0,90 reconhece 67,5%
+dos acrílicos com 70,7% de acerto (conservador: acrílicos sem AC no código contam
+como erro); corte 0,95: 56,5% / 77,8%. Não é rígido o bastante para travar a busca.
+
+**Uso no app:** `acrylicMarker.ts`/`loadAcrylicMarker.ts` + `acrylicMarker.json` (512
+pesos + viés). Na busca por IMAGEM, se prob >= 0,90 a tag `acrilico` entra nas
+palavras-chave (acrílicos primeiro, depois os mais parecidos; nada some do resultado)
+e o campo da imagem mostra a etiqueta "Acrílico (provável)". Falha ao carregar o
+marcador não derruba a busca. 139 testes, lint, typecheck e build passaram.
+
+**Limites:** marcador treinado com o rótulo por regra (itens acrílicos sem AC no
+código entram como "outros" no treino); retreinar quando houver mais itens ou
+exemplos corrigidos (rodar o script). Etapa 3 (semelhança visual depois dos
+acrílicos) já é o comportamento atual (completa pelos mais parecidos). Pendente:
+confirmar no site, ajustar o corte 0,90 se necessário.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

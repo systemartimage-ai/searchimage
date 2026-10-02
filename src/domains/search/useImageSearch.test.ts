@@ -2,7 +2,12 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useImageSearch } from './useImageSearch'
 
-const mocks = vi.hoisted(() => ({ image: vi.fn(), text: vi.fn(), search: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  image: vi.fn(),
+  text: vi.fn(),
+  search: vi.fn(),
+  marker: vi.fn(),
+}))
 afterEach(() => vi.restoreAllMocks())
 vi.mock('@/domains/embedding', () => ({
   ClipEmbeddingProvider: class {
@@ -12,6 +17,9 @@ vi.mock('@/domains/embedding', () => ({
     embedText = mocks.text
   },
   isPersonQuery: (text: string) => /mulher|menina/i.test(text),
+}))
+vi.mock('@/domains/catalog/loadAcrylicMarker', () => ({
+  loadAcrylicMarker: () => mocks.marker(),
 }))
 vi.mock('@/domains/catalog/loadPessoasPrototype', () => ({
   loadPessoasPrototype: async () => [0, 1],
@@ -31,6 +39,7 @@ beforeEach(() => {
   mocks.image.mockReset().mockResolvedValue([1, 0])
   mocks.text.mockReset().mockResolvedValue([1, 0])
   mocks.search.mockReset().mockResolvedValue([])
+  mocks.marker.mockReset().mockResolvedValue({ w: [0, 0], b: -10 })
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -132,5 +141,34 @@ describe('"Priorizar acrílicos"', () => {
     await act(() => result.current.runTextSearch('céu azul', { limit: 100, prioritizeAcrylic: true }))
     await act(() => result.current.applyFilters({ limit: 200, prioritizeAcrylic: true }))
     expect(mocks.search.mock.calls[1][2]).toContain('acrilico')
+  })
+})
+
+describe('marcador visual de acrílico (busca por imagem)', () => {
+  it('foto que parece acrílico: prioriza acrílicos e mostra a etiqueta', async () => {
+    mocks.marker.mockResolvedValue({ w: [10, 0], b: -5 })
+    const { result } = renderHook(() => useImageSearch())
+    act(() => result.current.selectFile(new File(['image'], 'foto.png', { type: 'image/png' })))
+    await act(() => result.current.runSearch({ limit: 100 }))
+    expect(mocks.search.mock.calls[0][2]).toContain('acrilico')
+    expect(result.current.imageLooksAcrylic).toBe(true)
+  })
+
+  it('foto que não parece acrílico: busca normal, sem etiqueta', async () => {
+    const { result } = renderHook(() => useImageSearch())
+    act(() => result.current.selectFile(new File(['image'], 'foto.png', { type: 'image/png' })))
+    await act(() => result.current.runSearch({ limit: 100 }))
+    expect(mocks.search.mock.calls[0][2] ?? []).not.toContain('acrilico')
+    expect(result.current.imageLooksAcrylic).toBe(false)
+  })
+
+  it('falha ao carregar o marcador não derruba a busca', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.marker.mockRejectedValue(new Error('chunk'))
+    const { result } = renderHook(() => useImageSearch())
+    act(() => result.current.selectFile(new File(['image'], 'foto.png', { type: 'image/png' })))
+    await act(() => result.current.runSearch({ limit: 100 }))
+    expect(result.current.status).toBe('empty')
+    expect(result.current.imageLooksAcrylic).toBe(false)
   })
 })

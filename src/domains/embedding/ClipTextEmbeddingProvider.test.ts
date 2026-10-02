@@ -141,9 +141,9 @@ describe('busca por texto em caixa alta', () => {
 })
 
 describe('withPersonPrompt', () => {
-  it('prefixa buscas por menina/mulher com "a painting of"', () => {
-    expect(withPersonPrompt('menina e mulher', 'girl and woman')).toBe('a painting of girl and woman')
-    expect(withPersonPrompt('Mulheres', 'women')).toBe('a painting of women')
+  it('prefixa buscas por menina/mulher com "a portrait of"', () => {
+    expect(withPersonPrompt('menina e mulher', 'girl and woman')).toBe('a portrait of girl and woman')
+    expect(withPersonPrompt('Mulheres', 'women')).toBe('a portrait of women')
   })
 
   it('não altera as demais buscas', () => {

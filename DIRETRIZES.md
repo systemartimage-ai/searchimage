@@ -1729,6 +1729,13 @@ quando a consulta contém menina/meninas/mulher/mulheres. Demais termos
 Sem migration. 107 testes, lint, typecheck e build passaram. Confirmação no
 site pendente.
 
+**Atualização (mesmo dia):** o prefixo "a painting of" afastou fotografias
+reais de mulheres/meninas (usuário reportou). Comparados por imagem: "a
+painting of" → só pinturas; "a photo of" → só desenhos de silhueta; média das
+duas → pinturas. "a portrait of a woman/girl" → retratos figurativos E
+fotografias reais de meninas (NC030A, NC044A, NC053A). Prefixo trocado para
+"a portrait of"; mesma lista restrita de palavras. Pendente: confirmar no site.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

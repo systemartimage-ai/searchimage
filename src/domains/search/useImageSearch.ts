@@ -11,7 +11,7 @@ import { searchLocalDirectory } from './searchLocalDirectory'
 import { extractTagKeywords } from './extractTagKeywords'
 import { blendWithMirrorPrototype, blendWithPrototype } from './blendMirrorQuery'
 import { loadPessoasPrototype } from '@/domains/catalog/loadPessoasPrototype'
-import { looksAcrylic } from '@/domains/catalog/acrylicMarker'
+import { ACRYLIC_MARKER_THRESHOLD, scoreAcrylic } from '@/domains/catalog/acrylicMarker'
 import { loadAcrylicMarker } from '@/domains/catalog/loadAcrylicMarker'
 import type { SearchResult } from './searchMockCatalog'
 
@@ -230,7 +230,12 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
             // Marcador visual de acrílico: só prioriza (acrílicos primeiro), não trava.
             // Falha ao carregar o marcador não derruba a busca.
             try {
-              if (looksAcrylic(embedding, await loadAcrylicMarker())) tagKeywords.push('acrilico')
+              const acrylicProbability = scoreAcrylic(embedding, await loadAcrylicMarker())
+              console.info(
+                `[marcador de acrílico] confiança: ${(acrylicProbability * 100).toFixed(1)}% ` +
+                  `(corte ${ACRYLIC_MARKER_THRESHOLD * 100}%)`,
+              )
+              if (acrylicProbability >= ACRYLIC_MARKER_THRESHOLD) tagKeywords.push('acrilico')
             } catch (error) {
               console.warn('Marcador de acrílico indisponível; seguindo sem ele:', error)
             }

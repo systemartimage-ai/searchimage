@@ -95,3 +95,32 @@ https://artimage-search.vercel.app. Deploy Vercel
 HTTP 200 e bundle `index-J7JQ2t7V.js` confirmados no endereço de
 produção, incluindo a nova mensagem de timeout. Fluxo autenticado
 não retestado após este deploy; banco remoto não alterado nesta publicação.
+
+## Recursos (plugins) — usar sem precisar ser chamado
+
+Instalados no Claude Code (escopo de usuário). Use por iniciativa própria quando a tarefa pedir; não espere o usuário citar o nome. Nada aqui
+substitui as regras deste projeto nem dispensa o "Posso publicar?" antes de publicar funcionalidade nova.
+
+- **playwright** — conferir no navegador real tudo que muda tela, fluxo, download ou layout (inclusive celular) antes de dizer que está pronto.
+- **code-review / pr-review-toolkit** — revisar o que mudou antes de commitar ou publicar uma alteração relevante; relatar o que a revisão achou.
+- **security-guidance** — atenção a segurança em login, perfis/RLS, funções de servidor, chaves e dados de clientes; avisar o usuário do risco encontrado.
+- **typescript-lsp** — usar a checagem de tipos em tempo real; rodar o typecheck/build antes de entregar.
+- **context7** — consultar a documentação atual da biblioteca (Supabase, Vite, React, jsPDF, SheetJS etc.) antes de usar uma API que não se tem certeza.
+- **frontend-design** — em ajuste de interface, seguir o padrão visual que já existe no projeto, sem inventar outro estilo.
+- **commit-commands** — só para commit/push quando o usuário pedir ou o fluxo do projeto mandar.
+- **claude-md-management** — manter este arquivo e o DIRETRIZES.md atualizados quando uma regra ou decisão mudar.
+- **hookify** — só criar travas automáticas quando o usuário pedir.
+- **canva** — catálogos, apresentações e peças visuais: criar/editar/redimensionar designs e conferir a marca (cores, logo, fontes do cliente). Pedir a marca e uma referência visual quando faltar.
+- **carbone-skill** — relatório fixo em DOCX/XLSX/PPTX a partir de um modelo do usuário, preenchido com dados (Excel/PDF cruzados).
+- **superdesign** — rascunhos de interface e gráficos de marketing; **figma** — ler arquivos, componentes e estilos do Figma quando o usuário trouxer um.
+- **adobe-for-creativity** — tratar imagem (tirar fundo, vetorizar, editar); **runway-api** — gerar imagem/vídeo novos (serviço pago, só quando o usuário pedir).
+- **desktop-commander** — ler/editar Excel, PDF, Word e imagens na máquina; poder amplo no computador: usar só nos arquivos da tarefa e avisar antes de mexer fora do projeto.
+- Cruzar Excel com PDF e montar o resultado em Excel ou PDF: seguir o padrão visual do projeto (ou a marca do cliente), conferir o arquivo gerado abrindo-o e nunca inventar dado ausente.
+
+## Agentes de apoio (`.claude/agents/`)
+
+Use por iniciativa própria, junto dos plugins `superpowers`, `feature-dev` e `agent-sdk-dev`:
+
+- **conferente-catalogo** — antes de indexar: imagens ruins, duplicadas, sem produto ou fora do ar (só leitura).
+- **validador-indice** — antes de trocar a versão ativa do índice: compara com a ativa e diz "pode trocar" ou "não trocar". O índice ativo nunca é destruído antes de uma versão validada.
+- **testador-busca** — após mexer em busca, banco, RLS ou embeddings: buscas de teste fixas, tempo, estados vazios e responsividade.

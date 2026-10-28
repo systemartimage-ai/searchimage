@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { isMobileDevice } from '@/domains/pwa/platform'
 import { ScanOverlay } from './ScanOverlay'
 
 interface DropzoneProps {
@@ -29,7 +30,24 @@ export function Dropzone({
   looksAcrylic = false,
 }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [chooserOpen, setChooserOpen] = useState(false)
+
+  // No celular o clique abre uma escolha: tirar uma foto agora ou escolher uma
+  // imagem dos arquivos/galeria. No computador abre direto o seletor de arquivos.
+  const mobile =
+    typeof navigator !== 'undefined' && isMobileDevice(navigator.userAgent, navigator.maxTouchPoints)
+
+  function openPicker() {
+    if (mobile) setChooserOpen(true)
+    else inputRef.current?.click()
+  }
+
+  function pickFrom(input: React.RefObject<HTMLInputElement | null>) {
+    setChooserOpen(false)
+    input.current?.click()
+  }
 
   // Ctrl+V em qualquer lugar da página cola a imagem, sem precisar
   // clicar em nada antes — mesmo comportamento do drag-and-drop, só
@@ -60,6 +78,51 @@ export function Dropzone({
     e.target.value = ''
   }
 
+  const hiddenInputs = (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+      {/* capture="environment": abre a câmera traseira do celular */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+    </>
+  )
+
+  const chooser = chooserOpen && (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Adicionar imagem"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      onClick={() => setChooserOpen(false)}
+    >
+      <div
+        className="flex w-full max-w-md flex-col gap-2 rounded-t-xl bg-background p-4 pb-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="pb-1 text-center text-sm font-medium text-foreground">Adicionar imagem</p>
+        <Button onClick={() => pickFrom(cameraRef)}>Tirar foto</Button>
+        <Button variant="outline" onClick={() => pickFrom(inputRef)}>
+          Escolher dos arquivos
+        </Button>
+        <Button variant="ghost" onClick={() => setChooserOpen(false)}>
+          Cancelar
+        </Button>
+      </div>
+    </div>
+  )
+
   if (previewUrl) {
     return (
       <div className="flex w-full flex-col items-center gap-4">
@@ -80,7 +143,7 @@ export function Dropzone({
           </p>
         )}
         <div className="flex flex-wrap justify-center gap-2">
-          <Button variant="outline" onClick={() => inputRef.current?.click()}>
+          <Button variant="outline" onClick={openPicker}>
             Trocar imagem
           </Button>
           <Button variant="outline" onClick={onRemove}>
@@ -90,13 +153,8 @@ export function Dropzone({
             {searching ? 'Pesquisando...' : 'Pesquisar'}
           </Button>
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={handleInputChange}
-        />
+        {hiddenInputs}
+        {chooser}
       </div>
     )
   }
@@ -119,19 +177,14 @@ export function Dropzone({
       )}
     >
       <p className="text-lg font-medium text-foreground">
-        Arraste uma imagem aqui ou cole com Ctrl+V
+        {mobile ? 'Tire uma foto ou escolha uma imagem' : 'Arraste uma imagem aqui ou cole com Ctrl+V'}
       </p>
       <p className="text-sm text-muted-foreground">JPG, PNG ou WebP — até 10MB</p>
-      <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-        Selecionar arquivo
+      <Button variant="outline" size="sm" onClick={openPicker}>
+        {mobile ? 'Tirar foto ou escolher imagem' : 'Selecionar arquivo'}
       </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={handleInputChange}
-      />
+      {hiddenInputs}
+      {chooser}
     </div>
   )
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { detectPlatform, isSafariBrowser, manualInstallSteps, platformLabel } from './platform'
+import {
+  detectPlatform,
+  isMobileDevice,
+  isSafariBrowser,
+  manualInstallSteps,
+  platformLabel,
+} from './platform'
 import { UA } from './userAgents'
 
 describe('detectPlatform', () => {
@@ -56,5 +62,18 @@ describe('platformLabel', () => {
     expect(platformLabel('ios')).toBe('iPhone/iPad')
     expect(platformLabel('mac')).toBe('Mac')
     expect(platformLabel('other')).toBe('computador')
+  })
+})
+
+describe('isMobileDevice', () => {
+  it('iPhone, iPad (inclusive em modo desktop) e Android são celular/tablet', () => {
+    expect(isMobileDevice(UA.iphone, 5)).toBe(true)
+    expect(isMobileDevice(UA.android, 5)).toBe(true)
+    expect(isMobileDevice(UA.ipadDesktopMode, 5)).toBe(true)
+  })
+
+  it('Windows e Mac (sem toque) não são', () => {
+    expect(isMobileDevice(UA.windowsChrome)).toBe(false)
+    expect(isMobileDevice(UA.macSafari)).toBe(false)
   })
 })

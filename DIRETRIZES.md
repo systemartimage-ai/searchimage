@@ -1868,6 +1868,24 @@ da lente (creme sobre o preto da marca), gerados por `scripts/generatePwaIcons.m
 no recorte circular. O cache do service worker subiu para `artimage-offline-v2`, para trocar o
 ícone da página offline. Quem já instalou o app pode precisar reinstalar para ver o novo ícone.
 
+## 2026-10-28 — Câmera ou arquivos no celular
+
+**Pedido:** no celular, ao clicar para selecionar a imagem, oferecer tirar uma foto com a
+câmera ou escolher dos arquivos.
+
+**Implementação:** `Dropzone.tsx`. Em iPhone, iPad (inclui modo desktop) e Android
+(`isMobileDevice`, em `domains/pwa/platform.ts`), o clique em "Tirar foto ou escolher
+imagem" (e em "Trocar imagem") abre uma folha com "Tirar foto" (input com
+`capture="environment"`, câmera traseira), "Escolher dos arquivos" (input normal, JPG/PNG/WebP,
+para o iOS converter HEIC em JPEG) e "Cancelar". No computador nada muda: abre direto o seletor
+de arquivos. Textos da área adaptados ao celular. 170 testes, lint, typecheck e build.
+Conferido no navegador com celular simulado (página de teste temporária, removida): a folha
+aparece com as 3 opções; no computador não aparece.
+
+**Limites:** a câmera de verdade e o seletor nativo não foram testados em aparelho físico; o
+que abre depende do navegador do celular. Foto da câmera em formato diferente de JPG/PNG/WebP
+(ex.: HEIC no iOS, se o navegador não converter) cai na mensagem de formato não suportado.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

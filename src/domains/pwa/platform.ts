@@ -13,6 +13,12 @@ export function detectPlatform(userAgent: string, maxTouchPoints = 0): InstallPl
   return 'other'
 }
 
+/** Celular ou tablet (iPhone, iPad, Android): aparelhos que têm câmera e tela de toque. */
+export function isMobileDevice(userAgent: string, maxTouchPoints = 0): boolean {
+  const platform = detectPlatform(userAgent, maxTouchPoints)
+  return platform === 'ios' || platform === 'android'
+}
+
 /** Safari de verdade: os demais navegadores também dizem "Safari" no user agent. */
 export function isSafariBrowser(userAgent: string): boolean {
   return (

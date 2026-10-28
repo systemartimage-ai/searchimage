@@ -1861,6 +1861,13 @@ agent; o botão nativo depende do navegador do aparelho). Firefox no computador 
 suporta instalar PWA (sem aviso). Chrome/Edge não liberam o botão se o app já está
 instalado naquele navegador.
 
+**Atualização (mesmo dia): ícone próprio.** O "A" solto da marca se confundia com o de outros
+aplicativos. O ícone do app e o favicon passaram a ser uma LUPA com o "A" da Artimage dentro
+da lente (creme sobre o preto da marca), gerados por `scripts/generatePwaIcons.mjs` (versão
+"maskable" reduzida a 80% para a zona segura do Android). Testado em 512, 192, 64 e 32 px e
+no recorte circular. O cache do service worker subiu para `artimage-offline-v2`, para trocar o
+ícone da página offline. Quem já instalou o app pode precisar reinstalar para ver o novo ícone.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

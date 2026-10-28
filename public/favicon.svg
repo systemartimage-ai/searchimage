@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" fill="#0e0d0b"/>
-  <text x="32" y="45" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="36" fill="#f5f3ef" text-anchor="middle">SI</text>
-  <g transform="translate(43 42) scale(0.15)">
-    <path fill="#f5f3ef" d="M40.3 80.9L26.9 120H.9l44-120h25.4l42 119.9H86.7l-46.4-39zm7.8-22.3L73 79.5 57.2 31.9l-9.1 26.7z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0e0d0b"/>
+  <g transform="translate(256 256) scale(0.94) translate(-256 -256)">
+    <circle cx="226" cy="226" r="130" fill="#1a1813" stroke="#f5f3ef" stroke-width="28"/>
+    <line x1="318" y1="318" x2="410" y2="410" stroke="#f5f3ef" stroke-width="44" stroke-linecap="round"/>
+    <path fill="#f5f3ef" transform="translate(155.3125 151) scale(1.25)" d="M40.3 80.9L26.9 120H.9l44-120h25.4l42 119.9H86.7l-46.4-39zm7.8-22.3L73 79.5 57.2 31.9l-9.1 26.7z"/>
   </g>
 </svg>

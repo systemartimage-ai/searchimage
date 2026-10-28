@@ -9,7 +9,7 @@
 // - O ícone da página offline é servido do cache que o próprio service worker guarda.
 // - Qualquer outra requisição (API do Supabase, fontes, modelos de IA, arquivos
 //   com hash em /assets): passa direto, sem interceptar.
-const CACHE = 'artimage-offline-v1'
+const CACHE = 'artimage-offline-v2'
 const OFFLINE_URL = '/offline.html'
 const ICON_URL = '/icons/icon-192.png'
 

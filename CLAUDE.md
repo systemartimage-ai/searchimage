@@ -74,6 +74,13 @@ corrigida por `normalizeQueryText`. Migration `20261001030000` (duas
 estratégias de busca) aplicada. Ao recriar `match_catalog_items_hybrid`,
 manter `ci.image_url` e o forçamento do índice HNSW.
 
+## Estado em 2026-10-28 (PWA)
+
+App instalável (PWA) com aviso de instalação a cada acesso; implementado e validado
+localmente, **ainda não publicado** (aguarda "Posso publicar?"). Detalhes e limites em
+`DIRETRIZES.md` (entrada "PWA instalável"). O service worker é mínimo de propósito: não
+guardar dados/arquivos do app nele.
+
 ## Estado em 2026-10-01
 
 Erro de texto `/class_head/Cast` reproduzido após falha do detector

@@ -1830,6 +1830,37 @@ exemplos corrigidos (rodar o script). Etapa 3 (semelhança visual depois dos
 acrílicos) já é o comportamento atual (completa pelos mais parecidos). Pendente:
 confirmar no site, ajustar o corte 0,90 se necessário.
 
+## 2026-10-28 — PWA instalável (Windows, Android, iPhone/iPad e Mac)
+
+**Pedido:** transformar o sistema em aplicativo PWA; todo acesso pelo navegador deve
+convidar a instalar (Windows, Android, iOS e Mac), sempre que o app é aberto.
+
+**Implementação:** `public/manifest.webmanifest` (standalone, preto #0e0d0b da marca,
+ícones 192/512/maskable), `public/sw.js` (service worker MÍNIMO: só mostra
+`public/offline.html` quando uma navegação falha sem internet; NÃO guarda dados nem
+arquivos do app — evita servir versão antiga após deploy, problema já ocorrido),
+`index.html` (manifest, theme-color, apple-touch-icon e metas do iOS), `vercel.json`
+(sw.js sem cache; manifest com content-type correto). Ícones gerados por
+`scripts/generatePwaIcons.mjs` (sharp) a partir do símbolo oficial.
+O aviso é `src/components/InstallPrompt.tsx` (faixa no topo, em todas as telas, inclusive
+login): Chrome/Edge no Windows, Android e Mac -> botão "Instalar" (evento
+`beforeinstallprompt`, capturado cedo em `domains/pwa/installEvent.ts`); iPhone/iPad
+(inclui iPad em modo desktop) e Safari do Mac -> passo a passo do menu, pois o site
+não consegue acionar a instalação ali. "Agora não"/"Entendi" fecha só até recarregar
+(o convite volta a cada acesso); nunca aparece com o app já aberto como aplicativo.
+Service worker só é registrado em produção.
+
+**Validação:** 162 testes (inclui detecção de plataforma e todos os cenários do aviso),
+lint, typecheck e build. No navegador real (Playwright, build de produção): manifesto
+válido, service worker ativo, ícones 200, aviso do Windows apareceu sozinho, iPhone e
+Safari do Mac mostram o passo a passo, "Agora não" fecha e o aviso volta ao recarregar,
+página offline com o ícone carregando.
+
+**Limites:** instalação real não testada em Android/iOS/Mac físicos (só emulação de user
+agent; o botão nativo depende do navegador do aparelho). Firefox no computador não
+suporta instalar PWA (sem aviso). Chrome/Edge não liberam o botão se o app já está
+instalado naquele navegador.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

@@ -16,6 +16,8 @@ export function HomePage() {
     status,
     searchMode,
     imageLooksAcrylic,
+    preparingPhoto,
+    modelProgress,
     previewUrl,
     results,
     errorMessage,
@@ -28,9 +30,15 @@ export function HomePage() {
 
   const isBusy = status === 'embedding' || status === 'searching'
   const showResults = ['embedding', 'searching', 'success', 'empty'].includes(status)
+  // Na primeira busca o aparelho baixa os modelos de IA (centenas de MB). Com a
+  // porcentagem na tela dá para ver que está andando; depois ficam no cache.
+  const downloadLabel =
+    modelProgress && modelProgress.percent < 100
+      ? `Baixando a IA (parte ${modelProgress.stage}): ${modelProgress.percent}% — ${modelProgress.loadedMB} de ${modelProgress.totalMB} MB. Só na primeira vez; use Wi-Fi.`
+      : null
   const scanLabel =
     status === 'embedding'
-      ? 'Gerando impressão digital visual...'
+      ? (downloadLabel ?? 'Gerando impressão digital visual...')
       : status === 'searching'
         ? 'Comparando com o catálogo...'
         : undefined
@@ -59,6 +67,7 @@ export function HomePage() {
               scanActive={isBusy && searchMode === 'image'}
               scanLabel={scanLabel}
               looksAcrylic={imageLooksAcrylic}
+              preparingPhoto={preparingPhoto}
             />
             <TextSearchBox
               onSearch={(text) => runTextSearch(text, { limit: 100, prioritizeAcrylic })}

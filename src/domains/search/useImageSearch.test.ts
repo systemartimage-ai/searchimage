@@ -1,12 +1,14 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useImageSearch } from './useImageSearch'
+import { reportModelProgress } from '@/domains/embedding/modelProgress'
 
 const mocks = vi.hoisted(() => ({
   image: vi.fn(),
   text: vi.fn(),
   search: vi.fn(),
   marker: vi.fn(),
+  downscale: vi.fn(),
 }))
 afterEach(() => vi.restoreAllMocks())
 vi.mock('@/domains/embedding', () => ({
@@ -24,6 +26,10 @@ vi.mock('@/domains/catalog/loadAcrylicMarker', () => ({
 vi.mock('@/domains/catalog/loadPessoasPrototype', () => ({
   loadPessoasPrototype: async () => [0, 1],
 }))
+vi.mock('./prepareImage', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./prepareImage')>()),
+  downscaleImage: (file: File) => mocks.downscale(file),
+}))
 vi.mock('./searchCatalog', () => ({ searchCatalog: mocks.search }))
 vi.mock('@/domains/catalog/loadTagLabelEmbeddings', () => ({
   loadTagLabelEmbeddings: async () => ({}),
@@ -40,6 +46,7 @@ beforeEach(() => {
   mocks.text.mockReset().mockResolvedValue([1, 0])
   mocks.search.mockReset().mockResolvedValue([])
   mocks.marker.mockReset().mockResolvedValue({ w: [0, 0], b: -10 })
+  mocks.downscale.mockReset().mockImplementation(async (file: File) => file)
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -170,5 +177,83 @@ describe('marcador visual de acrílico (busca por imagem)', () => {
     await act(() => result.current.runSearch({ limit: 100 }))
     expect(result.current.status).toBe('empty')
     expect(result.current.imageLooksAcrylic).toBe(false)
+  })
+})
+
+const MB = 1024 * 1024
+const bigPhoto = () => new File([new Uint8Array(4 * MB)], 'IMG_1.jpg', { type: 'image/jpeg' })
+
+describe('foto grande da câmera', () => {
+  it('foto pequena entra na hora, sem reduzir', () => {
+    const { result } = renderHook(() => useImageSearch())
+    act(() => result.current.selectFile(new File(['x'], 'a.png', { type: 'image/png' })))
+    expect(mocks.downscale).not.toHaveBeenCalled()
+    expect(result.current.preparingPhoto).toBe(false)
+    expect(result.current.status).toBe('preview')
+  })
+
+  it('foto grande: mostra "preparando" enquanto reduz e depois entra a versão reduzida', async () => {
+    let finish: (file: File) => void = () => {}
+    mocks.downscale.mockImplementation(() => new Promise<File>((resolve) => (finish = resolve)))
+    const { result } = renderHook(() => useImageSearch())
+
+    act(() => result.current.selectFile(bigPhoto()))
+    expect(result.current.preparingPhoto).toBe(true)
+    expect(result.current.file).toBeNull()
+
+    const reduced = new File(['pequena'], 'IMG_1.jpg', { type: 'image/jpeg' })
+    await act(async () => finish(reduced))
+
+    expect(result.current.preparingPhoto).toBe(false)
+    expect(result.current.file).toBe(reduced)
+    expect(result.current.status).toBe('preview')
+  })
+
+  it('se o usuário escolhe outra foto enquanto a primeira é reduzida, vale a última', async () => {
+    const pending: Array<(file: File) => void> = []
+    mocks.downscale.mockImplementation(() => new Promise<File>((resolve) => pending.push(resolve)))
+    const { result } = renderHook(() => useImageSearch())
+
+    act(() => result.current.selectFile(bigPhoto()))
+    const second = new File(['segunda'], 'B.png', { type: 'image/png' })
+    act(() => result.current.selectFile(second))
+    await act(async () => pending[0](new File(['primeira'], 'A.jpg', { type: 'image/jpeg' })))
+
+    expect(result.current.file).toBe(second)
+  })
+
+  it('foto da câmera acima de 10 MB passa a ser aceita depois de reduzida', async () => {
+    const huge = new File([new Uint8Array(12 * MB)], 'IMG_2.jpg', { type: 'image/jpeg' })
+    mocks.downscale.mockResolvedValue(new File([new Uint8Array(2 * MB)], 'IMG_2.jpg', { type: 'image/jpeg' }))
+    const { result } = renderHook(() => useImageSearch())
+
+    await act(async () => result.current.selectFile(huge))
+
+    expect(result.current.status).toBe('preview')
+    expect(result.current.errorMessage).toBeNull()
+  })
+
+  it('se mesmo reduzida continuar acima de 10 MB, mostra o aviso de tamanho', async () => {
+    mocks.downscale.mockImplementation(async (file: File) => file)
+    const { result } = renderHook(() => useImageSearch())
+
+    await act(async () => result.current.selectFile(new File([new Uint8Array(12 * MB)], 'X.jpg', { type: 'image/jpeg' })))
+
+    expect(result.current.errorMessage).toMatch(/muito grande/i)
+  })
+})
+
+describe('progresso do download da IA', () => {
+  it('expõe a porcentagem enquanto o modelo baixa e limpa quando termina', () => {
+    const { result } = renderHook(() => useImageSearch())
+    expect(result.current.modelProgress).toBeNull()
+
+    act(() =>
+      reportModelProgress({ status: 'progress', name: 'clip', file: 'v.onnx', loaded: 100 * MB, total: 200 * MB }),
+    )
+    expect(result.current.modelProgress).toEqual({ loadedMB: 100, totalMB: 200, percent: 50, stage: 1 })
+
+    act(() => reportModelProgress({ status: 'ready' }))
+    expect(result.current.modelProgress).toBeNull()
   })
 })

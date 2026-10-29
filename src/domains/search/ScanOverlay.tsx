@@ -54,7 +54,7 @@ export function ScanOverlay({ label }: ScanOverlayProps) {
 
       <div className="absolute inset-x-0 bottom-3 flex justify-center">
         <span
-          className="animate-scan-pulse rounded-full bg-background/80 px-3 py-1 text-xs font-medium shadow-sm"
+          className="max-w-[92%] animate-scan-pulse rounded-2xl bg-background/80 px-3 py-1 text-center text-xs font-medium leading-snug shadow-sm"
           style={{ color: SCAN_COLOR }}
         >
           {label}

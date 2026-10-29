@@ -118,3 +118,32 @@ describe('detector incompatível', () => {
     warn.mockRestore()
   })
 })
+
+// No celular o detector (~148 MB) não deve nem ser baixado: no navegador ele falha
+// sempre e o app já cai na foto inteira.
+describe('detector desligado (celular)', () => {
+  it('com useDetector=false usa a foto inteira e nunca carrega o detector', async () => {
+    vi.mocked(pipeline).mockReset()
+    const provider = new ClipEmbeddingProvider({ useDetector: false }) as unknown as {
+      cropToArtwork: (raw: object) => Promise<object>
+    }
+    const raw = { width: 4000, height: 3000 }
+
+    await expect(provider.cropToArtwork(raw)).resolves.toBe(raw)
+
+    expect(pipeline).not.toHaveBeenCalled()
+  })
+
+  it('por padrão o detector continua ligado (indexador no Node)', async () => {
+    vi.mocked(pipeline).mockReset().mockRejectedValue(new Error('qualquer falha'))
+    const provider = new ClipEmbeddingProvider() as unknown as {
+      cropToArtwork: (raw: object) => Promise<object>
+    }
+    await provider.cropToArtwork({ width: 10, height: 10 })
+    expect(pipeline).toHaveBeenCalledWith(
+      'zero-shot-object-detection',
+      'Xenova/owlvit-base-patch32',
+      expect.anything(),
+    )
+  })
+})

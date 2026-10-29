@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type RefObject,
+} from 'react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { isMobileDevice } from '@/domains/pwa/platform'
@@ -17,6 +25,8 @@ interface DropzoneProps {
   scanLabel?: string
   /** O marcador visual achou que a foto parece acrílico. */
   looksAcrylic?: boolean
+  /** A foto grande (câmera) está sendo reduzida antes de entrar na busca. */
+  preparingPhoto?: boolean
 }
 
 export function Dropzone({
@@ -28,11 +38,15 @@ export function Dropzone({
   scanActive,
   scanLabel,
   looksAcrylic = false,
+  preparingPhoto = false,
 }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [chooserOpen, setChooserOpen] = useState(false)
+  // Depois de tirar/escolher a foto o celular leva alguns segundos para entregá-la
+  // ao navegador (a câmera salva e converte a imagem). Sem aviso parecia erro.
+  const [receivingPhoto, setReceivingPhoto] = useState(false)
 
   // No celular o clique abre uma escolha: tirar uma foto agora ou escolher uma
   // imagem dos arquivos/galeria. No computador abre direto o seletor de arquivos.
@@ -44,10 +58,43 @@ export function Dropzone({
     else inputRef.current?.click()
   }
 
-  function pickFrom(input: React.RefObject<HTMLInputElement | null>) {
+  function pickFrom(input: RefObject<HTMLInputElement | null>) {
     setChooserOpen(false)
+    setReceivingPhoto(true)
     input.current?.click()
   }
+
+  // O aviso some quando a foto chega, quando o usuário cancela (evento "cancel"
+  // do seletor), quando toca na tela de novo, ou após 60 s (rede de segurança).
+  useEffect(() => {
+    if (!receivingPhoto) return
+    const stop = () => setReceivingPhoto(false)
+    const inputs = [inputRef.current, cameraRef.current]
+    inputs.forEach((input) => input?.addEventListener('cancel', stop))
+    window.addEventListener('pointerdown', stop, { once: true })
+    const timer = window.setTimeout(stop, 60_000)
+    return () => {
+      inputs.forEach((input) => input?.removeEventListener('cancel', stop))
+      window.removeEventListener('pointerdown', stop)
+      window.clearTimeout(timer)
+    }
+  }, [receivingPhoto])
+
+  const photoStatus = preparingPhoto
+    ? 'Preparando a foto…'
+    : receivingPhoto
+      ? 'Recebendo a foto… aguarde alguns segundos.'
+      : null
+  const photoStatusLine = photoStatus && (
+    <p
+      role="status"
+      aria-live="polite"
+      className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+    >
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      {photoStatus}
+    </p>
+  )
 
   // Ctrl+V em qualquer lugar da página cola a imagem, sem precisar
   // clicar em nada antes — mesmo comportamento do drag-and-drop, só
@@ -74,6 +121,7 @@ export function Dropzone({
 
   function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
+    setReceivingPhoto(false)
     if (selected) onSelectFile(selected)
     e.target.value = ''
   }
@@ -142,6 +190,7 @@ export function Dropzone({
             Acrílico (provável)
           </p>
         )}
+        {photoStatusLine}
         <div className="flex flex-wrap justify-center gap-2">
           <Button variant="outline" onClick={openPicker}>
             Trocar imagem
@@ -183,6 +232,7 @@ export function Dropzone({
       <Button variant="outline" size="sm" onClick={openPicker}>
         {mobile ? 'Tirar foto ou escolher imagem' : 'Selecionar arquivo'}
       </Button>
+      {photoStatusLine}
       {hiddenInputs}
       {chooser}
     </div>

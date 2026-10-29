@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UA } from '@/domains/pwa/userAgents'
 import { Dropzone } from './Dropzone'
@@ -111,5 +111,69 @@ describe('Dropzone — selecionar imagem no celular', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(click).toHaveBeenCalledTimes(1)
     expect((click.mock.contexts[0] as HTMLInputElement).hasAttribute('capture')).toBe(false)
+  })
+})
+
+describe('Dropzone — aviso enquanto a foto chega', () => {
+  async function takePhoto(props: Partial<React.ComponentProps<typeof Dropzone>> = {}) {
+    setDevice(UA.android, 5)
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+    const onSelectFile = vi.fn()
+    const view = render(<Dropzone {...base} previewUrl={null} onSelectFile={onSelectFile} {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: /tirar foto ou escolher imagem/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tirar foto' }))
+    const camera = view.container.querySelector('input[capture]') as HTMLInputElement
+    return { onSelectFile, camera }
+  }
+
+  it('depois de tocar em "Tirar foto" avisa que a foto está sendo recebida', async () => {
+    await takePhoto()
+    expect(screen.getByRole('status')).toHaveTextContent('Recebendo a foto')
+  })
+
+  it('o aviso some quando a foto chega', async () => {
+    const { onSelectFile, camera } = await takePhoto()
+    const photo = new File(['x'], 'foto.jpg', { type: 'image/jpeg' })
+
+    fireEvent.change(camera, { target: { files: [photo] } })
+
+    expect(onSelectFile).toHaveBeenCalledWith(photo)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('o aviso some se o usuário cancela a câmera', async () => {
+    const { camera } = await takePhoto()
+    fireEvent(camera, new Event('cancel'))
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('também avisa ao escolher dos arquivos', async () => {
+    setDevice(UA.iphone, 5)
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+    render(<Dropzone {...base} previewUrl={null} />)
+    await userEvent.click(screen.getByRole('button', { name: /tirar foto ou escolher imagem/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher dos arquivos' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Recebendo a foto')
+  })
+
+  it('foto grande sendo reduzida: mostra "Preparando a foto"', () => {
+    setDevice(UA.android, 5)
+    render(<Dropzone {...base} previewUrl={null} preparingPhoto />)
+    expect(screen.getByRole('status')).toHaveTextContent('Preparando a foto')
+  })
+
+  it('sem foto chegando nem sendo preparada, não mostra aviso', () => {
+    setDevice(UA.android, 5)
+    render(<Dropzone {...base} previewUrl={null} />)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('com a foto já na tela e uma nova sendo recebida, o aviso aparece perto da imagem', async () => {
+    setDevice(UA.android, 5)
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+    render(<Dropzone {...base} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Trocar imagem' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tirar foto' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Recebendo a foto')
   })
 })

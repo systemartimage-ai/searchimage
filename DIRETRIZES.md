@@ -1886,6 +1886,39 @@ aparece com as 3 opções; no computador não aparece.
 que abre depende do navegador do celular. Foto da câmera em formato diferente de JPG/PNG/WebP
 (ex.: HEIC no iOS, se o navegador não converter) cai na mensagem de formato não suportado.
 
+## 2026-10-28 — Foto da câmera no celular: demora sem aviso e busca que não conclui
+
+**Relato (celular):** a foto tirada só aparecia como anexada uns 5 s depois, sem nenhum aviso
+(parecia erro); e a busca por imagem não concluía (3 tentativas).
+
+**Medido (navegador real, build local):** a primeira busca por imagem baixa o CLIP fp32 (335 MB)
++ o detector OWL-ViT (148 MB) = ~483 MB (texto: CLIP de texto 242 MB + tradutor ~425 MB). O
+detector **falha sempre no navegador** ("Could not find an implementation for Cast(13) node
+'/class_head/Cast'") e o app cai na foto inteira: era download, tempo e memória gastos à toa, e
+repetido a cada carregamento de página. Busca completa do zero: 37 s (com detector) -> 23,8 s (sem).
+Foto de câmera (12 MP+) entrava inteira e fotos acima de 10 MB eram recusadas. Num contexto sem
+quota o navegador também recusou guardar o modelo no cache ("Unable to add response to browser
+cache") e a IA foi baixada de novo na segunda busca.
+
+**Correções:** (1) `prepareImage.ts`: fotos acima de 1,5 MB são reduzidas para no máx. 1280 px,
+com a rotação EXIF aplicada, em JPEG (falha = usa a original; a regra de 10 MB vale depois de reduzir);
+(2) `Dropzone`: avisos "Recebendo a foto…" (depois de tirar/escolher; some ao chegar, ao cancelar,
+ao tocar na tela ou em 60 s) e "Preparando a foto…"; (3) `modelProgress.ts`: porcentagem do download
+da IA na mensagem de espera ("Baixando a IA (parte N): X% — A de B MB. Só na primeira vez; use
+Wi-Fi."), sem repetir eventos (6.122 -> 430) e reiniciando por modelo; (4) no celular o detector não é
+carregado (`ClipEmbeddingProvider({ useDetector: false })`; no computador e no indexador Node continua
+ligado); (5) `persistStorage.ts` pede ao navegador que não apague o cache dos modelos.
+
+**Validação:** 207 testes, lint, typecheck e build; navegador real (Playwright) para as medições
+acima. **Não testado em celular físico** — a causa exata de a busca não concluir lá NÃO foi
+confirmada: hipóteses medidas (download grande sem aviso, detector inútil, foto enorme, cache
+recusado); falta o retorno do usuário (mensagem na tela, aparelho, Wi-Fi ou 4G).
+
+**Pendente/decisão:** o detector falha também no computador (mesmo erro no Chrome do usuário):
+desligá-lo em todo navegador economizaria ~148 MB e ~2 s por busca sem perder nada (cai na foto
+inteira de qualquer jeito); fica como proposta. Reduzir o tamanho do CLIP (versão quantizada de
+85 MB) mudaria os vetores e já causou divergência com o catálogo — não feito.
+
 # PRIMEIRA EXECUÇÃO DO PROJETO
 
 Ao receber este `CLAUDE.md` pela primeira vez, NÃO comece imediatamente

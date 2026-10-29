@@ -6,6 +6,7 @@ import {
   type PreTrainedTokenizer,
 } from '@huggingface/transformers'
 import { CLIP_MODEL_ID } from './ClipEmbeddingProvider'
+import { reportModelProgress } from './modelProgress'
 import { TAG_CATEGORIES } from '@/domains/catalog/tagTaxonomy'
 
 const TRANSLATOR_MODEL_ID = 'Xenova/opus-mt-ROMANCE-en'
@@ -171,7 +172,10 @@ export class ClipTextEmbeddingProvider {
   // próxima chamada tentar do zero.
   private getTranslator(): Promise<TranslationPipeline> {
     if (!this.translatorPromise) {
-      this.translatorPromise = pipeline('translation', TRANSLATOR_MODEL_ID, { dtype: 'fp32' }).catch(
+      this.translatorPromise = pipeline('translation', TRANSLATOR_MODEL_ID, {
+        dtype: 'fp32',
+        progress_callback: reportModelProgress,
+      }).catch(
         (err: unknown) => {
           this.translatorPromise = null
           throw err
@@ -183,7 +187,9 @@ export class ClipTextEmbeddingProvider {
 
   private getTokenizer(): Promise<PreTrainedTokenizer> {
     if (!this.tokenizerPromise) {
-      this.tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID).catch((err: unknown) => {
+      this.tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID, {
+        progress_callback: reportModelProgress,
+      }).catch((err: unknown) => {
         this.tokenizerPromise = null
         throw err
       })
@@ -195,6 +201,7 @@ export class ClipTextEmbeddingProvider {
     if (!this.textModelPromise) {
       this.textModelPromise = CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL_ID, {
         dtype: 'fp32',
+        progress_callback: reportModelProgress,
       }).catch((err: unknown) => {
         this.textModelPromise = null
         throw err

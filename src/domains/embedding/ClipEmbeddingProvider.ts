@@ -5,6 +5,7 @@ import {
   type ZeroShotObjectDetectionPipeline,
 } from '@huggingface/transformers'
 import type { EmbeddingProvider } from './EmbeddingProvider'
+import { reportModelProgress, resetModelProgress } from './modelProgress'
 
 export const CLIP_MODEL_ID = 'Xenova/clip-vit-base-patch32'
 export const CLIP_VECTOR_DIMENSION = 512
@@ -92,9 +93,26 @@ export function computeCropBox(
  * fp32 nos dois lados), e evita baixar peso extra no navegador sem
  * necessidade real.
  */
+export interface ClipEmbeddingProviderOptions {
+  /**
+   * Recorta a peça com o detector antes de embedar. Desligado, usa a foto inteira
+   * e NÃO baixa o detector (~148 MB). No navegador o detector falha sempre
+   * ("Could not find an implementation for Cast(13) node '/class_head/Cast'") e
+   * cai na foto inteira de qualquer jeito: no celular isso era só download,
+   * tempo e memória gastos à toa.
+   */
+  useDetector?: boolean
+}
+
 export class ClipEmbeddingProvider implements EmbeddingProvider {
   readonly modelVersion = CLIP_MODEL_ID
   readonly vectorDimension = CLIP_VECTOR_DIMENSION
+
+  private readonly useDetector: boolean
+
+  constructor(options: ClipEmbeddingProviderOptions = {}) {
+    this.useDetector = options.useDetector ?? true
+  }
 
   private extractorPromise: Promise<ImageFeatureExtractionPipeline> | null = null
   private detectorPromise: Promise<ZeroShotObjectDetectionPipeline> | null = null
@@ -109,8 +127,10 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
       // a próxima chamada tentar do zero.
       this.extractorPromise = pipeline('image-feature-extraction', CLIP_MODEL_ID, {
         dtype: 'fp32',
+        progress_callback: reportModelProgress,
       }).catch((err: unknown) => {
         this.extractorPromise = null
+        resetModelProgress()
         throw err
       })
     }
@@ -119,12 +139,13 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
 
   private getDetector(): Promise<ZeroShotObjectDetectionPipeline> {
     if (!this.detectorPromise) {
-      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID).catch(
-        (err: unknown) => {
-          this.detectorPromise = null
-          throw err
-        },
-      )
+      this.detectorPromise = pipeline('zero-shot-object-detection', DETECTION_MODEL_ID, {
+        progress_callback: reportModelProgress,
+      }).catch((err: unknown) => {
+        this.detectorPromise = null
+        resetModelProgress()
+        throw err
+      })
     }
     return this.detectorPromise
   }
@@ -139,7 +160,7 @@ export class ClipEmbeddingProvider implements EmbeddingProvider {
    * no fallback: usa a imagem inteira, nunca quebra a busca.
    */
   private async cropToArtwork(raw: RawImage): Promise<RawImage> {
-    if (this.detectorUnsupported) return raw
+    if (!this.useDetector || this.detectorUnsupported) return raw
     try {
       const detector = await this.getDetector()
       const detections = (await detector(raw, DETECTION_LABELS, {

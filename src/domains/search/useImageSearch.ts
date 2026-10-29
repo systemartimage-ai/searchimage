@@ -13,6 +13,14 @@ import { blendWithMirrorPrototype, blendWithPrototype } from './blendMirrorQuery
 import { loadPessoasPrototype } from '@/domains/catalog/loadPessoasPrototype'
 import { ACRYLIC_MARKER_THRESHOLD, scoreAcrylic } from '@/domains/catalog/acrylicMarker'
 import { loadAcrylicMarker } from '@/domains/catalog/loadAcrylicMarker'
+import {
+  getModelProgress,
+  resetModelProgress,
+  subscribeModelProgress,
+  type ModelProgress,
+} from '@/domains/embedding/modelProgress'
+import { isMobileDevice } from '@/domains/pwa/platform'
+import { downscaleImage, mayNeedDownscale } from './prepareImage'
 import type { SearchResult } from './searchMockCatalog'
 
 // Categorias usadas pra classificar a FOTO de busca (não o texto) com
@@ -33,7 +41,11 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 // CLIP local (Transformers.js) — mesmo modelo usado para gerar os
 // embeddings de REAL_CATALOG_SAMPLE, senão a comparação não faz
 // sentido. Sem API key: pode rodar no navegador (ver EmbeddingProvider.ts).
-const provider = new ClipEmbeddingProvider()
+// No celular não carrega o detector de objetos (148 MB que falham no navegador de
+// qualquer jeito, caindo na foto inteira) — ver ClipEmbeddingProviderOptions.
+const isMobileClient =
+  typeof navigator !== 'undefined' && isMobileDevice(navigator.userAgent, navigator.maxTouchPoints)
+const provider = new ClipEmbeddingProvider({ useDetector: !isMobileClient })
 const textProvider = new ClipTextEmbeddingProvider()
 
 export interface SearchOptions {
@@ -142,6 +154,12 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
   const [searchMode, setSearchMode] = useState<SearchMode>(null)
   // A foto enviada parece acrílico (marcador visual) — mostra a etiqueta no campo da imagem.
   const [imageLooksAcrylic, setImageLooksAcrylic] = useState(false)
+  // Foto grande (câmera) sendo reduzida antes de entrar na busca.
+  const [preparingPhoto, setPreparingPhoto] = useState(false)
+  // Download dos modelos de IA (primeira busca no aparelho).
+  const [modelProgress, setModelProgress] = useState<ModelProgress | null>(getModelProgress())
+  useEffect(() => subscribeModelProgress(setModelProgress), [])
+  const selectionRef = useRef(0)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [results, setResults] = useState<SearchResult[]>([])
@@ -173,12 +191,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     setStatus('idle')
   }, [])
 
-  const selectFile = useCallback((candidate: File) => {
-    if (!ACCEPTED_TYPES.includes(candidate.type)) {
-      setErrorMessage('Formato não suportado. Envie uma imagem JPG, PNG ou WebP.')
-      setStatus('error')
-      return
-    }
+  const acceptFile = useCallback((candidate: File) => {
     if (candidate.size > MAX_FILE_SIZE) {
       setErrorMessage('Imagem muito grande (máximo 10MB).')
       setStatus('error')
@@ -198,10 +211,37 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     setStatus('preview')
   }, [])
 
+  const selectFile = useCallback(
+    (candidate: File) => {
+      if (!ACCEPTED_TYPES.includes(candidate.type)) {
+        setErrorMessage('Formato não suportado. Envie uma imagem JPG, PNG ou WebP.')
+        setStatus('error')
+        return
+      }
+      const selection = ++selectionRef.current
+      if (!mayNeedDownscale(candidate)) {
+        setPreparingPhoto(false)
+        acceptFile(candidate)
+        return
+      }
+      // Foto de câmera: reduz antes de usar (menos memória e tempo no celular e
+      // sem recusar fotos acima de 10 MB). Se o usuário escolher outra foto
+      // enquanto esta é reduzida, o resultado antigo é descartado.
+      setPreparingPhoto(true)
+      void downscaleImage(candidate).then((prepared) => {
+        if (selection !== selectionRef.current) return
+        setPreparingPhoto(false)
+        acceptFile(prepared)
+      })
+    },
+    [acceptFile],
+  )
+
   /** Primeira pesquisa: gera o embedding (async) e então filtra. */
   const runSearch = useCallback(
     async (options: SearchOptions) => {
       if (!file) return
+      resetModelProgress()
       setErrorMessage(null)
       setSearchMode('image')
       setStatus('embedding')
@@ -271,6 +311,7 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     previewUrlRef.current = null
     setFile(null)
     setPreviewUrl(null)
+    resetModelProgress()
     setErrorMessage(null)
     setSearchMode('text')
     setImageLooksAcrylic(false)
@@ -356,6 +397,8 @@ export function useImageSearch(localItems: CatalogItem[] = []) {
     status,
     searchMode,
     imageLooksAcrylic,
+    preparingPhoto,
+    modelProgress,
     file,
     previewUrl,
     results,
